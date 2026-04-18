@@ -263,10 +263,14 @@ export default function RecompCoachSupabaseApp() {
     setSaving(true);
     try {
       const payload = {
-        ...liftForm,
-        athlete_id: athlete.id,
-        exercise_name: liftForm.exercise_name.trim(),
-      };
+      ...liftForm,
+      athlete_id: athlete.id,
+      exercise_name: liftForm.exercise_name.trim(),
+      week_no: selectedProgramRow?.week_no ?? liftForm.week_no ?? null,
+      block: selectedProgramRow?.block ?? liftForm.block ?? null,
+      day_no: selectedProgramRow?.day_no ?? liftForm.day_no ?? null,
+      session_name: selectedProgramRow?.session_name ?? liftForm.session_name ?? null,
+    };
 
       const { error } = await supabase.from("lift_logs").insert([payload]);
       if (error) throw error;
@@ -415,6 +419,47 @@ const selectedProgramRows =
 const selectedProgramRow =
   selectedProgramRows.length > 0 ? selectedProgramRows[selectedExerciseIndex] ?? null : null;
 
+const completedWorkouts = useMemo(() => {
+  const grouped = new Map<
+    string,
+    {
+      entry_date: string;
+      session_name: string;
+      week_no: number | null;
+      day_no: number | null;
+      block: string | null;
+      exercises: LiftLog[];
+    }
+  >();
+
+  for (const row of liftLogs) {
+    const entryDate = row.entry_date ?? "";
+    const sessionName = row.session_name ?? "Unknown Session";
+    const weekNo = row.week_no ?? null;
+    const dayNo = row.day_no ?? null;
+    const block = row.block ?? null;
+
+    const key = `${entryDate}__${sessionName}__${weekNo ?? ""}__${dayNo ?? ""}`;
+
+    if (!grouped.has(key)) {
+      grouped.set(key, {
+        entry_date: entryDate,
+        session_name: sessionName,
+        week_no: weekNo,
+        day_no: dayNo,
+        block,
+        exercises: [],
+      });
+    }
+
+    grouped.get(key)!.exercises.push(row);
+  }
+
+  return Array.from(grouped.values()).sort((a, b) => {
+    return new Date(b.entry_date).getTime() - new Date(a.entry_date).getTime();
+  });
+}, [liftLogs]);
+  
 const selectProgramSession = (groupName: string, rows: ProgramTemplateRow[]) => {
   if (selectedProgramKey === groupName) {
     setTab("workout");
@@ -518,6 +563,51 @@ const selectProgramSession = (groupName: string, rows: ProgramTemplateRow[]) => 
 
       {tab === "workout" && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+          <section>
+  <h2>Completed workouts</h2>
+
+  {completedWorkouts.length === 0 ? (
+    <p>No completed workouts yet.</p>
+  ) : (
+    <div style={{ display: "grid", gap: 16 }}>
+      {completedWorkouts.map((workout, index) => (
+        <div
+          key={`${workout.entry_date}-${workout.session_name}-${index}`}
+          style={{
+            border: "1px solid #ccc",
+            borderRadius: 12,
+            padding: 16,
+            background: "#fff",
+          }}
+        >
+          <h3 style={{ marginTop: 0, marginBottom: 8 }}>
+            {workout.entry_date} — Week {workout.week_no ?? "?"} Day {workout.day_no ?? "?"} —{" "}
+            {workout.session_name}
+          </h3>
+
+          {workout.block ? (
+            <p style={{ marginTop: 0, marginBottom: 12 }}>
+              <strong>Block:</strong> {workout.block}
+            </p>
+          ) : null}
+
+          <SimpleTable
+            columns={["Exercise", "Sets", "Reps", "Weight", "RPE", "Pain"]}
+            rows={workout.exercises.map((row) => [
+              row.exercise_name,
+              row.sets ?? "",
+              row.reps ?? "",
+              row.weight ?? "",
+              row.rpe ?? "",
+              row.pain_score ?? "",
+            ])}
+          />
+        </div>
+      ))}
+    </div>
+  )}
+</section>
+          
           <section>
             <h2>Log Workout</h2>
                         {selectedProgramRow && (
