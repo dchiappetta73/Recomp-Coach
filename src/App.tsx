@@ -484,14 +484,51 @@ const selectProgramSession = (groupName: string, rows: ProgramTemplateRow[]) => 
   }));
 };
 
-  return (
-    <div style={{ maxWidth: 1200, margin: "0 auto", padding: 24, fontFamily: "Inter, system-ui, sans-serif" }}>
-      <h1>Recomp Coach</h1>
-      <p>Connected to Supabase. Data persists across refreshes, browsers, and devices.</p>
-      <p><strong>Athlete:</strong> {athlete?.name || "Not loaded"}</p>
+  const cardStyle: React.CSSProperties = {
+  background: "#ffffff",
+  border: "1px solid #d1d5db",
+  borderRadius: 12,
+  padding: 16,
+  color: "#111827",
+};
+
+  const inputStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "10px 12px",
+  border: "1px solid #d1d5db",
+  borderRadius: 8,
+  background: "#ffffff",
+  color: "#111827",
+  boxSizing: "border-box",
+};
+
+    return (
+    <div
+      style={{
+        maxWidth: 1200,
+        margin: "0 auto",
+        padding: 24,
+        fontFamily: "Inter, system-ui, sans-serif",
+        color: "#e5e7eb",
+      }}
+    >
+      <h1 style={{ textAlign: "center", marginBottom: 12 }}>Recomp Coach</h1>
+      <p style={{ textAlign: "center", marginBottom: 6 }}>
+        Connected to Supabase. Data persists across refreshes, browsers, and devices.
+      </p>
+      <p style={{ textAlign: "center", marginTop: 0, marginBottom: 20 }}>
+        <strong>Athlete:</strong> {athlete?.name || "Not loaded"}
+      </p>
 
       {nutrition && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 12, marginBottom: 20 }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(6, 1fr)",
+            gap: 12,
+            marginBottom: 20,
+          }}
+        >
           <Metric title="Training cals" value={`${Math.round(nutrition.training_day_calories)} kcal`} />
           <Metric title="Rest cals" value={`${Math.round(nutrition.rest_day_calories)} kcal`} />
           <Metric title="Protein" value={`${Math.round(nutrition.protein_g)} g`} />
@@ -510,8 +547,8 @@ const selectProgramSession = (groupName: string, rows: ProgramTemplateRow[]) => 
               padding: "10px 14px",
               borderRadius: 8,
               border: "1px solid #d1d5db",
-              background: tab === name ? "#059669" : "white",
-              color: tab === name ? "white" : "#111827",
+              background: tab === name ? "#059669" : "#ffffff",
+              color: tab === name ? "#ffffff" : "#111827",
               cursor: "pointer",
             }}
           >
@@ -520,11 +557,11 @@ const selectProgramSession = (groupName: string, rows: ProgramTemplateRow[]) => 
         ))}
       </div>
 
-            {tab === "program" && (
+      {tab === "program" && (
         <div>
-          <h2 style={{ marginBottom: 16 }}>Program</h2>
+          <h2 style={{ marginBottom: 16, color: "#f8fafc" }}>Program</h2>
           {programRows.length === 0 ? (
-            <p>No program rows found.</p>
+            <p style={{ color: "#94a3b8" }}>No program rows found.</p>
           ) : (
             groupedProgramRows.map(([groupName, rows]) => (
               <button
@@ -536,14 +573,15 @@ const selectProgramSession = (groupName: string, rows: ProgramTemplateRow[]) => 
                   width: "100%",
                   textAlign: "left",
                   border: selectedProgramKey === groupName ? "2px solid #059669" : "1px solid #d1d5db",
-                  background: selectedProgramKey === groupName ? "#ecfdf5" : "white",
+                  background: selectedProgramKey === groupName ? "#ecfdf5" : "#ffffff",
+                  color: "#111827",
                   borderRadius: 12,
                   padding: 16,
                   marginBottom: 16,
                   cursor: "pointer",
                 }}
               >
-                <h3 style={{ marginTop: 0 }}>{groupName}</h3>
+                <h3 style={{ marginTop: 0, marginBottom: 12, color: "#111827" }}>{groupName}</h3>
                 <SimpleTable
                   columns={["Exercise", "Sets", "Reps", "Target RPE", "Starting Load", "Notes"]}
                   rows={rows.map((row) => [
@@ -564,53 +602,49 @@ const selectProgramSession = (groupName: string, rows: ProgramTemplateRow[]) => 
       {tab === "workout" && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
           <section>
-  <h2>Completed workouts</h2>
+            <h2 style={{ color: "#f8fafc" }}>Completed workouts</h2>
 
-  {completedWorkouts.length === 0 ? (
-    <p>No completed workouts yet.</p>
-  ) : (
-    <div style={{ display: "grid", gap: 16 }}>
-      {completedWorkouts.map((workout, index) => (
-        <div
-          key={`${workout.entry_date}-${workout.session_name}-${index}`}
-          style={{
-            border: "1px solid #ccc",
-            borderRadius: 12,
-            padding: 16,
-            background: "#fff",
-          }}
-        >
-          <h3 style={{ marginTop: 0, marginBottom: 8 }}>
-            {workout.entry_date} — Week {workout.week_no ?? "?"} Day {workout.day_no ?? "?"} —{" "}
-            {workout.session_name}
-          </h3>
+            {completedWorkouts.length === 0 ? (
+              <p style={{ color: "#94a3b8" }}>No completed workouts yet.</p>
+            ) : (
+              <div style={{ display: "grid", gap: 16 }}>
+                {completedWorkouts.map((workout, index) => (
+                  <div
+                    key={`${workout.entry_date}-${workout.session_name}-${index}`}
+                    style={cardStyle}
+                  >
+                    <h3 style={{ marginTop: 0, marginBottom: 8, color: "#111827" }}>
+                      {workout.entry_date} — Week {workout.week_no ?? "?"} Day {workout.day_no ?? "?"} —{" "}
+                      {workout.session_name}
+                    </h3>
 
-          {workout.block ? (
-            <p style={{ marginTop: 0, marginBottom: 12 }}>
-              <strong>Block:</strong> {workout.block}
-            </p>
-          ) : null}
+                    {workout.block ? (
+                      <p style={{ marginTop: 0, marginBottom: 12, color: "#374151" }}>
+                        <strong>Block:</strong> {workout.block}
+                      </p>
+                    ) : null}
 
-          <SimpleTable
-            columns={["Exercise", "Sets", "Reps", "Weight", "RPE", "Pain"]}
-            rows={workout.exercises.map((row) => [
-              row.exercise_name,
-              row.sets ?? "",
-              row.reps ?? "",
-              row.weight ?? "",
-              row.rpe ?? "",
-              row.pain_score ?? "",
-            ])}
-          />
-        </div>
-      ))}
-    </div>
-  )}
-</section>
-          
-          <section>
-            <h2>Log Workout</h2>
-                        {selectedProgramRow && (
+                    <SimpleTable
+                      columns={["Exercise", "Sets", "Reps", "Weight", "RPE", "Pain"]}
+                      rows={workout.exercises.map((row) => [
+                        row.exercise_name,
+                        row.sets ?? "",
+                        row.reps ?? "",
+                        row.weight ?? "",
+                        row.rpe ?? "",
+                        row.pain_score ?? "",
+                      ])}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section style={cardStyle}>
+            <h2 style={{ marginTop: 0, color: "#111827" }}>Log Workout</h2>
+
+            {selectedProgramRow && (
               <div
                 style={{
                   border: "1px solid #d1d5db",
@@ -618,6 +652,7 @@ const selectProgramSession = (groupName: string, rows: ProgramTemplateRow[]) => 
                   padding: 12,
                   marginBottom: 16,
                   background: "#f9fafb",
+                  color: "#111827",
                 }}
               >
                 <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Selected Program Session</div>
@@ -633,40 +668,100 @@ const selectProgramSession = (groupName: string, rows: ProgramTemplateRow[]) => 
                 </div>
               </div>
             )}
+
             <Field label="Date">
-              <input type="date" value={liftForm.entry_date} onChange={(e) => setLiftForm({ ...liftForm, entry_date: e.target.value })} />
+              <input
+                style={inputStyle}
+                type="date"
+                value={liftForm.entry_date}
+                onChange={(e) => setLiftForm({ ...liftForm, entry_date: e.target.value })}
+              />
             </Field>
             <Field label="Exercise">
-              <input value={liftForm.exercise_name} onChange={(e) => setLiftForm({ ...liftForm, exercise_name: e.target.value })} />
+              <input
+                style={inputStyle}
+                value={liftForm.exercise_name}
+                onChange={(e) => setLiftForm({ ...liftForm, exercise_name: e.target.value })}
+              />
             </Field>
             <Field label="Sets">
-              <input type="number" value={liftForm.sets ?? ""} onChange={(e) => setLiftForm({ ...liftForm, sets: Number(e.target.value) || null })} />
+              <input
+                style={inputStyle}
+                type="number"
+                value={liftForm.sets ?? ""}
+                onChange={(e) => setLiftForm({ ...liftForm, sets: Number(e.target.value) || null })}
+              />
             </Field>
             <Field label="Reps">
-              <input value={liftForm.reps ?? ""} onChange={(e) => setLiftForm({ ...liftForm, reps: e.target.value })} />
+              <input
+                style={inputStyle}
+                value={liftForm.reps ?? ""}
+                onChange={(e) => setLiftForm({ ...liftForm, reps: e.target.value })}
+              />
             </Field>
             <Field label="Weight">
-              <input type="number" value={liftForm.weight ?? ""} onChange={(e) => setLiftForm({ ...liftForm, weight: e.target.value === "" ? null : Number(e.target.value) })} />
+              <input
+                style={inputStyle}
+                type="number"
+                value={liftForm.weight ?? ""}
+                onChange={(e) => setLiftForm({ ...liftForm, weight: e.target.value === "" ? null : Number(e.target.value) })}
+              />
             </Field>
             <Field label="RPE">
-              <input type="number" step="0.5" value={liftForm.rpe ?? ""} onChange={(e) => setLiftForm({ ...liftForm, rpe: e.target.value === "" ? null : Number(e.target.value) })} />
+              <input
+                style={inputStyle}
+                type="number"
+                step="0.5"
+                value={liftForm.rpe ?? ""}
+                onChange={(e) => setLiftForm({ ...liftForm, rpe: e.target.value === "" ? null : Number(e.target.value) })}
+              />
             </Field>
             <Field label="Pain">
-              <input type="number" min="0" max="10" value={liftForm.pain_score ?? ""} onChange={(e) => setLiftForm({ ...liftForm, pain_score: e.target.value === "" ? null : Number(e.target.value) })} />
+              <input
+                style={inputStyle}
+                type="number"
+                min="0"
+                max="10"
+                value={liftForm.pain_score ?? ""}
+                onChange={(e) => setLiftForm({ ...liftForm, pain_score: e.target.value === "" ? null : Number(e.target.value) })}
+              />
             </Field>
             <Field label="Energy">
-              <input type="number" min="1" max="10" value={liftForm.energy_score ?? ""} onChange={(e) => setLiftForm({ ...liftForm, energy_score: e.target.value === "" ? null : Number(e.target.value) })} />
+              <input
+                style={inputStyle}
+                type="number"
+                min="1"
+                max="10"
+                value={liftForm.energy_score ?? ""}
+                onChange={(e) => setLiftForm({ ...liftForm, energy_score: e.target.value === "" ? null : Number(e.target.value) })}
+              />
             </Field>
             <Field label="Notes">
-              <textarea value={liftForm.notes ?? ""} onChange={(e) => setLiftForm({ ...liftForm, notes: e.target.value })} />
+              <textarea
+                style={{ ...inputStyle, minHeight: 90, resize: "vertical" }}
+                value={liftForm.notes ?? ""}
+                onChange={(e) => setLiftForm({ ...liftForm, notes: e.target.value })}
+              />
             </Field>
-            <button onClick={saveLift} disabled={saving} style={{ padding: "10px 14px", cursor: "pointer" }}>
+
+            <button
+              onClick={saveLift}
+              disabled={saving}
+              style={{
+                padding: "10px 14px",
+                cursor: "pointer",
+                borderRadius: 8,
+                border: "1px solid #059669",
+                background: "#059669",
+                color: "#ffffff",
+              }}
+            >
               {saving ? "Saving..." : "Save workout"}
             </button>
           </section>
 
-          <section>
-            <h2>Recent workout logs</h2>
+          <section style={cardStyle}>
+            <h2 style={{ marginTop: 0, color: "#111827" }}>Recent workout logs</h2>
             <SimpleTable
               columns={["Date", "Exercise", "Sets", "Reps", "Weight", "RPE", "Pain"]}
               rows={liftLogs.map((row) => [
@@ -685,51 +780,119 @@ const selectProgramSession = (groupName: string, rows: ProgramTemplateRow[]) => 
 
       {tab === "diet" && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-          <section>
-            <h2>Log Diet & Recovery</h2>
+          <section style={cardStyle}>
+            <h2 style={{ marginTop: 0, color: "#111827" }}>Log Diet & Recovery</h2>
             <Field label="Date">
-              <input type="date" value={dietForm.entry_date} onChange={(e) => setDietForm({ ...dietForm, entry_date: e.target.value })} />
+              <input
+                style={inputStyle}
+                type="date"
+                value={dietForm.entry_date}
+                onChange={(e) => setDietForm({ ...dietForm, entry_date: e.target.value })}
+              />
             </Field>
             <Field label="Day Type">
-              <select value={dietForm.day_type} onChange={(e) => setDietForm({ ...dietForm, day_type: e.target.value as "Training" | "Rest" })}>
+              <select
+                style={inputStyle}
+                value={dietForm.day_type}
+                onChange={(e) => setDietForm({ ...dietForm, day_type: e.target.value as "Training" | "Rest" })}
+              >
                 <option value="Training">Training</option>
                 <option value="Rest">Rest</option>
               </select>
             </Field>
             <Field label="Calories">
-              <input type="number" value={dietForm.calories ?? ""} onChange={(e) => setDietForm({ ...dietForm, calories: e.target.value === "" ? null : Number(e.target.value) })} />
+              <input
+                style={inputStyle}
+                type="number"
+                value={dietForm.calories ?? ""}
+                onChange={(e) => setDietForm({ ...dietForm, calories: e.target.value === "" ? null : Number(e.target.value) })}
+              />
             </Field>
             <Field label="Protein">
-              <input type="number" value={dietForm.protein_g ?? ""} onChange={(e) => setDietForm({ ...dietForm, protein_g: e.target.value === "" ? null : Number(e.target.value) })} />
+              <input
+                style={inputStyle}
+                type="number"
+                value={dietForm.protein_g ?? ""}
+                onChange={(e) => setDietForm({ ...dietForm, protein_g: e.target.value === "" ? null : Number(e.target.value) })}
+              />
             </Field>
             <Field label="Carbs">
-              <input type="number" value={dietForm.carbs_g ?? ""} onChange={(e) => setDietForm({ ...dietForm, carbs_g: e.target.value === "" ? null : Number(e.target.value) })} />
+              <input
+                style={inputStyle}
+                type="number"
+                value={dietForm.carbs_g ?? ""}
+                onChange={(e) => setDietForm({ ...dietForm, carbs_g: e.target.value === "" ? null : Number(e.target.value) })}
+              />
             </Field>
             <Field label="Fat">
-              <input type="number" value={dietForm.fat_g ?? ""} onChange={(e) => setDietForm({ ...dietForm, fat_g: e.target.value === "" ? null : Number(e.target.value) })} />
+              <input
+                style={inputStyle}
+                type="number"
+                value={dietForm.fat_g ?? ""}
+                onChange={(e) => setDietForm({ ...dietForm, fat_g: e.target.value === "" ? null : Number(e.target.value) })}
+              />
             </Field>
             <Field label="Sleep Hours">
-              <input type="number" step="0.1" value={dietForm.sleep_hours ?? ""} onChange={(e) => setDietForm({ ...dietForm, sleep_hours: e.target.value === "" ? null : Number(e.target.value) })} />
+              <input
+                style={inputStyle}
+                type="number"
+                step="0.1"
+                value={dietForm.sleep_hours ?? ""}
+                onChange={(e) => setDietForm({ ...dietForm, sleep_hours: e.target.value === "" ? null : Number(e.target.value) })}
+              />
             </Field>
             <Field label="Sleep Quality">
-              <input type="number" min="1" max="10" value={dietForm.sleep_quality ?? ""} onChange={(e) => setDietForm({ ...dietForm, sleep_quality: e.target.value === "" ? null : Number(e.target.value) })} />
+              <input
+                style={inputStyle}
+                type="number"
+                min="1"
+                max="10"
+                value={dietForm.sleep_quality ?? ""}
+                onChange={(e) => setDietForm({ ...dietForm, sleep_quality: e.target.value === "" ? null : Number(e.target.value) })}
+              />
             </Field>
             <Field label="Steps">
-              <input type="number" value={dietForm.steps ?? ""} onChange={(e) => setDietForm({ ...dietForm, steps: e.target.value === "" ? null : Number(e.target.value) })} />
+              <input
+                style={inputStyle}
+                type="number"
+                value={dietForm.steps ?? ""}
+                onChange={(e) => setDietForm({ ...dietForm, steps: e.target.value === "" ? null : Number(e.target.value) })}
+              />
             </Field>
             <Field label="Bodyweight">
-              <input type="number" value={dietForm.bodyweight_lb ?? ""} onChange={(e) => setDietForm({ ...dietForm, bodyweight_lb: e.target.value === "" ? null : Number(e.target.value) })} />
+              <input
+                style={inputStyle}
+                type="number"
+                value={dietForm.bodyweight_lb ?? ""}
+                onChange={(e) => setDietForm({ ...dietForm, bodyweight_lb: e.target.value === "" ? null : Number(e.target.value) })}
+              />
             </Field>
             <Field label="Notes">
-              <textarea value={dietForm.notes ?? ""} onChange={(e) => setDietForm({ ...dietForm, notes: e.target.value })} />
+              <textarea
+                style={{ ...inputStyle, minHeight: 90, resize: "vertical" }}
+                value={dietForm.notes ?? ""}
+                onChange={(e) => setDietForm({ ...dietForm, notes: e.target.value })}
+              />
             </Field>
-            <button onClick={saveDiet} disabled={saving} style={{ padding: "10px 14px", cursor: "pointer" }}>
+
+            <button
+              onClick={saveDiet}
+              disabled={saving}
+              style={{
+                padding: "10px 14px",
+                cursor: "pointer",
+                borderRadius: 8,
+                border: "1px solid #059669",
+                background: "#059669",
+                color: "#ffffff",
+              }}
+            >
               {saving ? "Saving..." : "Save diet log"}
             </button>
           </section>
 
-          <section>
-            <h2>Recent diet logs</h2>
+          <section style={cardStyle}>
+            <h2 style={{ marginTop: 0, color: "#111827" }}>Recent diet logs</h2>
             <SimpleTable
               columns={["Date", "Type", "Calories", "Protein", "Carbs", "Fat", "Sleep"]}
               rows={dietLogs.map((row) => [
@@ -760,8 +923,8 @@ const selectProgramSession = (groupName: string, rows: ProgramTemplateRow[]) => 
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label style={{ display: "block", marginBottom: 10 }}>
-      <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>{label}</div>
+    <label style={{ display: "block", marginBottom: 10, color: "#111827" }}>
+      <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, color: "#374151" }}>{label}</div>
       {children}
     </label>
   );
@@ -769,20 +932,45 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function Metric({ title, value }: { title: string; value: string }) {
   return (
-    <div style={{ border: "1px solid #d1d5db", borderRadius: 10, padding: 16 }}>
+    <div
+      style={{
+        background: "#ffffff",
+        border: "1px solid #d1d5db",
+        borderRadius: 10,
+        padding: 16,
+        color: "#111827",
+      }}
+    >
       <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>{title}</div>
-      <div style={{ fontSize: 22, fontWeight: 700 }}>{value}</div>
+      <div style={{ fontSize: 22, fontWeight: 700, color: "#111827" }}>{value}</div>
     </div>
   );
 }
 
 function SimpleTable({ columns, rows }: { columns: string[]; rows: Array<Array<string | number>> }) {
   return (
-    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+    <table
+      style={{
+        width: "100%",
+        borderCollapse: "collapse",
+        background: "transparent",
+        color: "#111827",
+      }}
+    >
       <thead>
         <tr>
           {columns.map((c) => (
-            <th key={c} style={{ textAlign: "left", borderBottom: "1px solid #d1d5db", padding: 8 }}>
+            <th
+              key={c}
+              style={{
+                textAlign: "left",
+                borderBottom: "1px solid #9ca3af",
+                padding: 8,
+                color: "#111827",
+                background: "transparent",
+                fontWeight: 700,
+              }}
+            >
               {c}
             </th>
           ))}
@@ -792,7 +980,15 @@ function SimpleTable({ columns, rows }: { columns: string[]; rows: Array<Array<s
         {rows.map((row, i) => (
           <tr key={i}>
             {row.map((cell, j) => (
-              <td key={j} style={{ borderBottom: "1px solid #f3f4f6", padding: 8 }}>
+              <td
+                key={j}
+                style={{
+                  borderBottom: "1px solid #d1d5db",
+                  padding: 8,
+                  color: "#374151",
+                  background: "transparent",
+                }}
+              >
                 {String(cell)}
               </td>
             ))}
