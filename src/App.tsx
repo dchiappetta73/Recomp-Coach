@@ -35,6 +35,9 @@ type LiftLog = {
   day_no?: number | null;
   session_name?: string | null;
   exercise_name: string;
+  set_no?: number | null;
+  planned_sets?: number | null;
+  planned_reps?: string | null;
   sets?: number | null;
   reps?: string | null;
   weight?: number | null;
@@ -43,7 +46,7 @@ type LiftLog = {
   pain_score?: number | null;
   energy_score?: number | null;
   notes?: string | null;
-};
+  };
 
 type DietLog = {
   id?: string;
@@ -94,6 +97,9 @@ export default function RecompCoachSupabaseApp() {
     athlete_id: "",
     entry_date: new Date().toISOString().slice(0, 10),
     exercise_name: "",
+    set_no: 1,
+    planned_sets: null,
+    planned_reps: null,
     sets: 3,
     reps: "8",
     weight: null,
@@ -263,61 +269,41 @@ export default function RecompCoachSupabaseApp() {
     setSaving(true);
     try {
       const payload = {
-      ...liftForm,
-      athlete_id: athlete.id,
-      exercise_name: liftForm.exercise_name.trim(),
-      week_no: selectedProgramRow?.week_no ?? liftForm.week_no ?? null,
-      block: selectedProgramRow?.block ?? liftForm.block ?? null,
-      day_no: selectedProgramRow?.day_no ?? liftForm.day_no ?? null,
-      session_name: selectedProgramRow?.session_name ?? liftForm.session_name ?? null,
-    };
+        ...liftForm,
+        athlete_id: athlete.id,
+        exercise_name: liftForm.exercise_name.trim(),
+        set_no: liftForm.set_no ?? 1,
+        planned_sets:
+          selectedProgramRow?.sets ? Number(selectedProgramRow.sets) || null : liftForm.planned_sets ?? null,
+        planned_reps: selectedProgramRow?.reps ?? liftForm.planned_reps ?? null,
+        week_no: selectedProgramRow?.week_no ?? liftForm.week_no ?? null,
+        block: selectedProgramRow?.block ?? liftForm.block ?? null,
+        day_no: selectedProgramRow?.day_no ?? liftForm.day_no ?? null,
+        session_name: selectedProgramRow?.session_name ?? liftForm.session_name ?? null,
+};
 
       const { error } = await supabase.from("lift_logs").insert([payload]);
       if (error) throw error;
 
-            const nextIndex = selectedExerciseIndex + 1;
-      const nextProgramRow =
-        selectedProgramRows.length > 0 && nextIndex < selectedProgramRows.length
-          ? selectedProgramRows[nextIndex]
-          : null;
+      setLiftLogs((prev) => [payload, ...prev]);
 
-      if (nextProgramRow) {
-        setSelectedExerciseIndex(nextIndex);
-        setLiftForm({
-          athlete_id: athlete.id,
-          entry_date: new Date().toISOString().slice(0, 10),
-          week_no: nextProgramRow.week_no ?? null,
-          block: nextProgramRow.block ?? null,
-          day_no: nextProgramRow.day_no ?? null,
-          session_name: nextProgramRow.session_name ?? null,
-          exercise_name: nextProgramRow.exercise_name ?? "",
-          sets: nextProgramRow.sets ? Number(nextProgramRow.sets) || null : null,
-          reps: nextProgramRow.reps ?? "",
-          weight: null,
-          unit: "lb",
-          rpe: null,
-          pain_score: 0,
-          energy_score: null,
-          notes: nextProgramRow.notes ?? "",
-        });
-      } else {
-        setLiftForm({
-          athlete_id: athlete.id,
-          entry_date: new Date().toISOString().slice(0, 10),
-          exercise_name: "",
-          sets: 3,
-          reps: "8",
-          weight: null,
-          unit: "lb",
-          rpe: null,
-          pain_score: 0,
-          energy_score: null,
-          notes: "",
-        });
-      }
+      setLiftForm((prev) => ({
+        ...prev,
+        athlete_id: athlete.id,
+        entry_date: prev.entry_date,
+        set_no: (prev.set_no ?? 1) + 1,
+        planned_sets:
+          selectedProgramRow?.sets ? Number(selectedProgramRow.sets) || null : prev.planned_sets ?? null,
+        planned_reps: selectedProgramRow?.reps ?? prev.planned_reps ?? null,
+        weight: null,
+        rpe: null,
+        pain_score: 0,
+        energy_score: prev.energy_score ?? null,
+        notes: "",
+      })); 
     } catch (err) {
-      console.error(err);
-      alert("Failed to save workout log. Check console for details.");
+      console.error("saveLift error:", err);
+      alert(`Failed to save workout log: ${JSON.stringify(err)}`);
     } finally {
       setSaving(false);
     }
@@ -478,6 +464,9 @@ const selectProgramSession = (groupName: string, rows: ProgramTemplateRow[]) => 
     day_no: firstRow?.day_no ?? null,
     session_name: firstRow?.session_name ?? null,
     exercise_name: firstRow?.exercise_name ?? "",
+    set_no: 1,
+    planned_sets: firstRow?.sets ? Number(firstRow.sets) || null : null,
+    planned_reps: firstRow?.reps ?? null,
     sets: firstRow?.sets ? Number(firstRow.sets) || null : null,
     reps: firstRow?.reps ?? "",
     notes: firstRow?.notes ?? "",
@@ -583,16 +572,15 @@ const selectProgramSession = (groupName: string, rows: ProgramTemplateRow[]) => 
               >
                 <h3 style={{ marginTop: 0, marginBottom: 12, color: "#111827" }}>{groupName}</h3>
                 <SimpleTable
-                  columns={["Exercise", "Sets", "Reps", "Target RPE", "Starting Load", "Notes"]}
+                  columns={["Exercise", "Sets", "Reps", "Target RPE", "Starting Load"]}
                   rows={rows.map((row) => [
                     row.exercise_name,
                     row.sets ?? "",
                     row.reps ?? "",
                     row.target_rpe ?? "",
                     row.starting_load ?? "",
-                    row.notes ?? "",
-                  ])}
-                />
+  ])}
+/>
               </button>
             ))
           )}
@@ -614,7 +602,11 @@ const selectProgramSession = (groupName: string, rows: ProgramTemplateRow[]) => 
                     style={cardStyle}
                   >
                     <h3 style={{ marginTop: 0, marginBottom: 8, color: "#111827" }}>
-                      {workout.entry_date} — Week {workout.week_no ?? "?"} Day {workout.day_no ?? "?"} —{" "}
+                      {workout.entry_date}
+                      {workout.week_no != null && workout.day_no != null ? (
+                        <> — Week {workout.week_no} Day {workout.day_no}</>
+                      ) : null}
+                      {" — "}
                       {workout.session_name}
                     </h3>
 
@@ -625,16 +617,17 @@ const selectProgramSession = (groupName: string, rows: ProgramTemplateRow[]) => 
                     ) : null}
 
                     <SimpleTable
-                      columns={["Exercise", "Sets", "Reps", "Weight", "RPE", "Pain"]}
+                      columns={["Date", "Exercise", "Set", "Reps", "Weight", "RPE", "Pain"]}
                       rows={workout.exercises.map((row) => [
+                        row.entry_date,
                         row.exercise_name,
-                        row.sets ?? "",
+                        row.set_no ?? "",
                         row.reps ?? "",
                         row.weight ?? "",
                         row.rpe ?? "",
                         row.pain_score ?? "",
-                      ])}
-                    />
+  ])}
+/>
                   </div>
                 ))}
               </div>
@@ -684,7 +677,22 @@ const selectProgramSession = (groupName: string, rows: ProgramTemplateRow[]) => 
                 onChange={(e) => setLiftForm({ ...liftForm, exercise_name: e.target.value })}
               />
             </Field>
-            <Field label="Sets">
+            
+            <Field label="Set Number">
+              <input
+              style={inputStyle}
+              type="number"
+              min="1"
+              value={liftForm.set_no ?? 1}
+              onChange={(e) =>
+              setLiftForm({
+              ...liftForm,
+              set_no: e.target.value === "" ? null : Number(e.target.value),
+              })
+    }
+  />
+</Field>
+            <Field label="Planned Sets">
               <input
                 style={inputStyle}
                 type="number"
@@ -692,7 +700,7 @@ const selectProgramSession = (groupName: string, rows: ProgramTemplateRow[]) => 
                 onChange={(e) => setLiftForm({ ...liftForm, sets: Number(e.target.value) || null })}
               />
             </Field>
-            <Field label="Reps">
+            <Field label="Actual Reps">
               <input
                 style={inputStyle}
                 value={liftForm.reps ?? ""}
@@ -763,17 +771,17 @@ const selectProgramSession = (groupName: string, rows: ProgramTemplateRow[]) => 
           <section style={cardStyle}>
             <h2 style={{ marginTop: 0, color: "#111827" }}>Recent workout logs</h2>
             <SimpleTable
-              columns={["Date", "Exercise", "Sets", "Reps", "Weight", "RPE", "Pain"]}
+              columns={["Date", "Exercise", "Set", "Reps", "Weight", "RPE", "Pain"]}
               rows={liftLogs.map((row) => [
                 row.entry_date,
                 row.exercise_name,
-                row.sets ?? "",
+                row.set_no ?? "",
                 row.reps ?? "",
                 row.weight ?? "",
                 row.rpe ?? "",
                 row.pain_score ?? "",
-              ])}
-            />
+  ])}
+/>
           </section>
         </div>
       )}
