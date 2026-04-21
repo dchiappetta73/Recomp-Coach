@@ -82,6 +82,52 @@ type ProgramTemplateRow = {
   notes?: string | null;
 };
 
+type LiftSetDraft = {
+  reps?: string | null;
+  weight?: number | null;
+  rpe?: number | null;
+  pain_score?: number | null;
+  energy_score?: number | null;
+  notes?: string | null;
+};
+
+const EXERCISE_SUBSTITUTIONS: Record<string, string[]> = {
+  "Goblet Squat": ["Bulgarian Split Squat", "Step Up", "DB Hack Squat"],
+  "Romanian Deadlift": ["Hip Thrust", "Leg Curl", "Cable Pull Through"],
+  "Dumbbell Floor Press": ["Landmine Press", "Cable Fly"],
+  "Incline Press": ["Landmine Press", "Cable Fly"],
+  "Chest-Supported Row": ["Seated Row", "Single Arm Row"],
+  "Neutral Grip Lat Pulldown": ["Single Arm Pulldown", "Straight Arm Pulldown"],
+};
+
+const getProgramPlannedSets = (row: ProgramTemplateRow) => {
+  const plannedSets = Number(row.sets);
+  return Number.isFinite(plannedSets) && plannedSets > 0 ? Math.floor(plannedSets) : 1;
+};
+
+const getProgramRowKey = (row: ProgramTemplateRow, rowIndex: number) =>
+  row.id ?? `${row.exercise_name}-${row.week_no}-${row.day_no}-${rowIndex}`;
+
+const getLiftSetKey = (row: ProgramTemplateRow, rowIndex: number, setNo: number) =>
+  `${getProgramRowKey(row, rowIndex)}-${setNo}`;
+
+const getLiftLogLookupKey = ({
+  entry_date,
+  week_no,
+  day_no,
+  session_name,
+  exercise_name,
+  set_no,
+}: {
+  entry_date: string;
+  week_no?: number | null;
+  day_no?: number | null;
+  session_name?: string | null;
+  exercise_name: string;
+  set_no: number;
+}) =>
+  `${entry_date}__${week_no ?? ""}__${day_no ?? ""}__${session_name ?? ""}__${exercise_name.trim().toLowerCase()}__${set_no}`;
+
 export default function RecompCoachSupabaseApp() {
   const [athlete, setAthlete] = useState<Athlete | null>(null);
   const [nutrition, setNutrition] = useState<NutritionTarget | null>(null);
@@ -91,17 +137,16 @@ export default function RecompCoachSupabaseApp() {
   const [tab, setTab] = useState<"program" | "workout" | "diet" | "progress">("program");
   const [saving, setSaving] = useState(false);
   const [selectedProgramKey, setSelectedProgramKey] = useState<string | null>(null);
-  const [selectedExerciseIndex, setSelectedExerciseIndex] = useState(0);
   const [liftForm, setLiftForm] = useState<LiftLog>({
 
     athlete_id: "",
     entry_date: new Date().toISOString().slice(0, 10),
     exercise_name: "",
     set_no: 1,
-    planned_sets: null,
-    planned_reps: null,
-    sets: 3,
-    reps: "8",
+    planned_sets: 3,
+    planned_reps: "8",
+    sets: null,
+    reps: "",
     weight: null,
     unit: "lb",
     rpe: null,
@@ -109,6 +154,9 @@ export default function RecompCoachSupabaseApp() {
     energy_score: null,
     notes: "",
   });
+  const [liftSetDrafts, setLiftSetDrafts] = useState<Record<string, LiftSetDraft>>({});
+  const [sessionExerciseOverrides, setSessionExerciseOverrides] = useState<Record<string, string>>({});
+  const [sessionExtraSets, setSessionExtraSets] = useState<Record<string, number>>({});
 
   const [dietForm, setDietForm] = useState<DietLog>({
     athlete_id: "",
@@ -263,23 +311,47 @@ export default function RecompCoachSupabaseApp() {
     };
   }, [athlete?.id]);
 
-  const saveLift = async () => {
-    if (!athlete?.id || !liftForm.exercise_name.trim()) return;
+  const updateLiftSetDraft = (key: string, patch: LiftSetDraft) => {
+    setLiftSetDrafts((prev) => ({
+      ...prev,
+      [key]: {
+        ...prev[key],
+        ...patch,
+      },
+    }));
+  };
+
+  const getSessionExerciseName = (row: ProgramTemplateRow, rowIndex: number) =>
+    sessionExerciseOverrides[getProgramRowKey(row, rowIndex)] ?? row.exercise_name;
+
+  const saveLift = async (row: ProgramTemplateRow, rowIndex: number, setNo: number) => {
+    const effectiveExerciseName = getSessionExerciseName(row, rowIndex);
+    if (!athlete?.id || !effectiveExerciseName.trim()) return;
+
+    const key = getLiftSetKey(row, rowIndex, setNo);
+    const draft = liftSetDrafts[key] ?? {};
 
     setSaving(true);
     try {
-      const payload = {
-        ...liftForm,
+      const payload: LiftLog = {
         athlete_id: athlete.id,
-        exercise_name: liftForm.exercise_name.trim(),
-        set_no: liftForm.set_no ?? 1,
-        planned_sets:
-          selectedProgramRow?.sets ? Number(selectedProgramRow.sets) || null : liftForm.planned_sets ?? null,
-        planned_reps: selectedProgramRow?.reps ?? liftForm.planned_reps ?? null,
-        week_no: selectedProgramRow?.week_no ?? liftForm.week_no ?? null,
-        block: selectedProgramRow?.block ?? liftForm.block ?? null,
-        day_no: selectedProgramRow?.day_no ?? liftForm.day_no ?? null,
-        session_name: selectedProgramRow?.session_name ?? liftForm.session_name ?? null,
+        entry_date: liftForm.entry_date,
+        week_no: row.week_no ?? null,
+        block: row.block ?? null,
+        day_no: row.day_no ?? null,
+        session_name: row.session_name ?? null,
+        exercise_name: effectiveExerciseName.trim(),
+        set_no: setNo,
+        sets: null,
+        planned_sets: getProgramPlannedSets(row),
+        planned_reps: row.reps ?? null,
+        reps: draft.reps ?? "",
+        weight: draft.weight ?? null,
+        unit: liftForm.unit ?? "lb",
+        rpe: draft.rpe ?? null,
+        pain_score: draft.pain_score ?? 0,
+        energy_score: draft.energy_score ?? null,
+        notes: draft.notes ?? "",
 };
 
       const { error } = await supabase.from("lift_logs").insert([payload]);
@@ -291,16 +363,32 @@ export default function RecompCoachSupabaseApp() {
         ...prev,
         athlete_id: athlete.id,
         entry_date: prev.entry_date,
-        set_no: (prev.set_no ?? 1) + 1,
-        planned_sets:
-          selectedProgramRow?.sets ? Number(selectedProgramRow.sets) || null : prev.planned_sets ?? null,
-        planned_reps: selectedProgramRow?.reps ?? prev.planned_reps ?? null,
+        week_no: row.week_no ?? null,
+        block: row.block ?? null,
+        day_no: row.day_no ?? null,
+        session_name: row.session_name ?? null,
+        exercise_name: effectiveExerciseName,
+        set_no: setNo + 1,
+        planned_sets: getProgramPlannedSets(row),
+        planned_reps: row.reps ?? null,
+        reps: "",
         weight: null,
         rpe: null,
         pain_score: 0,
         energy_score: prev.energy_score ?? null,
         notes: "",
       })); 
+      setLiftSetDrafts((prev) => ({
+        ...prev,
+        [key]: {
+          reps: payload.reps ?? "",
+          weight: payload.weight ?? null,
+          rpe: payload.rpe ?? null,
+          pain_score: payload.pain_score ?? 0,
+          energy_score: payload.energy_score ?? null,
+          notes: payload.notes ?? "",
+        },
+      }));
     } catch (err) {
       console.error("saveLift error:", err);
       alert(`Failed to save workout log: ${JSON.stringify(err)}`);
@@ -402,49 +490,90 @@ const selectedProgramRows =
     ? groupedProgramRows.find(([groupName]) => groupName === selectedProgramKey)?.[1] ?? []
     : [];
 
-const selectedProgramRow =
-  selectedProgramRows.length > 0 ? selectedProgramRows[selectedExerciseIndex] ?? null : null;
-
-const completedWorkouts = useMemo(() => {
-  const grouped = new Map<
-    string,
-    {
-      entry_date: string;
-      session_name: string;
-      week_no: number | null;
-      day_no: number | null;
-      block: string | null;
-      exercises: LiftLog[];
-    }
-  >();
+const savedLiftLogsBySet = useMemo(() => {
+  const lookup = new Map<string, LiftLog>();
 
   for (const row of liftLogs) {
-    const entryDate = row.entry_date ?? "";
-    const sessionName = row.session_name ?? "Unknown Session";
-    const weekNo = row.week_no ?? null;
-    const dayNo = row.day_no ?? null;
-    const block = row.block ?? null;
+    if (!row.entry_date || !row.exercise_name || row.set_no == null) continue;
 
-    const key = `${entryDate}__${sessionName}__${weekNo ?? ""}__${dayNo ?? ""}`;
+    const key = getLiftLogLookupKey({
+      entry_date: row.entry_date,
+      week_no: row.week_no ?? null,
+      day_no: row.day_no ?? null,
+      session_name: row.session_name ?? null,
+      exercise_name: row.exercise_name,
+      set_no: row.set_no,
+    });
 
-    if (!grouped.has(key)) {
-      grouped.set(key, {
-        entry_date: entryDate,
-        session_name: sessionName,
-        week_no: weekNo,
-        day_no: dayNo,
-        block,
-        exercises: [],
-      });
+    if (!lookup.has(key)) {
+      lookup.set(key, row);
     }
-
-    grouped.get(key)!.exercises.push(row);
   }
 
-  return Array.from(grouped.values()).sort((a, b) => {
-    return new Date(b.entry_date).getTime() - new Date(a.entry_date).getTime();
-  });
+  return lookup;
 }, [liftLogs]);
+
+const getSavedLogForSessionRow = (row: ProgramTemplateRow, rowIndex: number, setNo: number) => {
+  const effectiveExerciseName = getSessionExerciseName(row, rowIndex);
+
+  const savedWithEffectiveName = savedLiftLogsBySet.get(
+    getLiftLogLookupKey({
+      entry_date: liftForm.entry_date,
+      week_no: row.week_no ?? null,
+      day_no: row.day_no ?? null,
+      session_name: row.session_name ?? null,
+      exercise_name: effectiveExerciseName,
+      set_no: setNo,
+    })
+  );
+
+  if (savedWithEffectiveName) return savedWithEffectiveName;
+
+  if (effectiveExerciseName !== row.exercise_name) {
+    return savedLiftLogsBySet.get(
+      getLiftLogLookupKey({
+        entry_date: liftForm.entry_date,
+        week_no: row.week_no ?? null,
+        day_no: row.day_no ?? null,
+        session_name: row.session_name ?? null,
+        exercise_name: row.exercise_name,
+        set_no: setNo,
+      })
+    );
+  }
+
+  return undefined;
+};
+
+const todaysSessionLogs = useMemo(() => {
+  if (!selectedProgramRows.length) return [];
+
+  const sessionExerciseNames = new Set(
+    selectedProgramRows.flatMap((programRow, rowIndex) => {
+      const effectiveExerciseName = getSessionExerciseName(programRow, rowIndex).trim().toLowerCase();
+      const originalExerciseName = programRow.exercise_name.trim().toLowerCase();
+
+      return effectiveExerciseName === originalExerciseName
+        ? [originalExerciseName]
+        : [originalExerciseName, effectiveExerciseName];
+    })
+  );
+
+  return liftLogs.filter((row) => {
+    if (row.entry_date !== liftForm.entry_date) return false;
+    if (row.week_no !== (selectedProgramRows[0]?.week_no ?? null)) return false;
+    if (row.day_no !== (selectedProgramRows[0]?.day_no ?? null)) return false;
+    if ((row.session_name ?? null) !== (selectedProgramRows[0]?.session_name ?? null)) return false;
+
+    return sessionExerciseNames.has(row.exercise_name.trim().toLowerCase());
+  });
+}, [liftForm.entry_date, liftLogs, selectedProgramRows, sessionExerciseOverrides]);
+
+const todaysSavedSetCount = todaysSessionLogs.length;
+const todaysPlannedSetCount = selectedProgramRows.reduce(
+  (total, row) => total + getProgramPlannedSets(row),
+  0
+);
   
 const selectProgramSession = (groupName: string, rows: ProgramTemplateRow[]) => {
   if (selectedProgramKey === groupName) {
@@ -454,7 +583,9 @@ const selectProgramSession = (groupName: string, rows: ProgramTemplateRow[]) => 
 
   const firstRow = rows[0];
   setSelectedProgramKey(groupName);
-  setSelectedExerciseIndex(0);
+  setLiftSetDrafts({});
+  setSessionExerciseOverrides({});
+  setSessionExtraSets({});
   setTab("workout");
   setLiftForm((prev) => ({
     ...prev,
@@ -467,8 +598,8 @@ const selectProgramSession = (groupName: string, rows: ProgramTemplateRow[]) => 
     set_no: 1,
     planned_sets: firstRow?.sets ? Number(firstRow.sets) || null : null,
     planned_reps: firstRow?.reps ?? null,
-    sets: firstRow?.sets ? Number(firstRow.sets) || null : null,
-    reps: firstRow?.reps ?? "",
+    sets: null,
+    reps: "",
     notes: firstRow?.notes ?? "",
   }));
 };
@@ -489,6 +620,26 @@ const selectProgramSession = (groupName: string, rows: ProgramTemplateRow[]) => 
   background: "#ffffff",
   color: "#111827",
   boxSizing: "border-box",
+};
+
+  const compactWorkoutInputStyle: React.CSSProperties = {
+  ...inputStyle,
+  minHeight: 40,
+  padding: "8px 10px",
+  fontSize: 15,
+};
+
+  const workoutMetaPillStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  minHeight: 28,
+  padding: "4px 8px",
+  border: "1px solid #d1d5db",
+  borderRadius: 999,
+  background: "#ffffff",
+  color: "#374151",
+  fontSize: 12,
+  fontWeight: 600,
 };
 
     return (
@@ -588,204 +739,330 @@ const selectProgramSession = (groupName: string, rows: ProgramTemplateRow[]) => 
       )}
 
       {tab === "workout" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-          <section>
-            <h2 style={{ color: "#f8fafc" }}>Completed workouts</h2>
-
-            {completedWorkouts.length === 0 ? (
-              <p style={{ color: "#94a3b8" }}>No completed workouts yet.</p>
-            ) : (
-              <div style={{ display: "grid", gap: 16 }}>
-                {completedWorkouts.map((workout, index) => (
-                  <div
-                    key={`${workout.entry_date}-${workout.session_name}-${index}`}
-                    style={cardStyle}
-                  >
-                    <h3 style={{ marginTop: 0, marginBottom: 8, color: "#111827" }}>
-                      {workout.entry_date}
-                      {workout.week_no != null && workout.day_no != null ? (
-                        <> — Week {workout.week_no} Day {workout.day_no}</>
-                      ) : null}
-                      {" — "}
-                      {workout.session_name}
-                    </h3>
-
-                    {workout.block ? (
-                      <p style={{ marginTop: 0, marginBottom: 12, color: "#374151" }}>
-                        <strong>Block:</strong> {workout.block}
-                      </p>
-                    ) : null}
-
-                    <SimpleTable
-                      columns={["Date", "Exercise", "Set", "Reps", "Weight", "RPE", "Pain"]}
-                      rows={workout.exercises.map((row) => [
-                        row.entry_date,
-                        row.exercise_name,
-                        row.set_no ?? "",
-                        row.reps ?? "",
-                        row.weight ?? "",
-                        row.rpe ?? "",
-                        row.pain_score ?? "",
-  ])}
-/>
-                  </div>
-                ))}
+        <div style={{ display: "grid", gap: 14 }}>
+          <section
+            style={{
+              background: "#ffffff",
+              border: "1px solid #d1d5db",
+              borderRadius: 8,
+              padding: 14,
+              color: "#111827",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                gap: 12,
+                flexWrap: "wrap",
+                marginBottom: 12,
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#047857", marginBottom: 4 }}>
+                  Selected Program Session
+                </div>
+                <h2 style={{ margin: 0, color: "#111827" }}>{selectedProgramKey ?? "Log Workout"}</h2>
               </div>
-            )}
-          </section>
-
-          <section style={cardStyle}>
-            <h2 style={{ marginTop: 0, color: "#111827" }}>Log Workout</h2>
-
-            {selectedProgramRow && (
               <div
                 style={{
-                  border: "1px solid #d1d5db",
-                  borderRadius: 12,
-                  padding: 12,
-                  marginBottom: 16,
-                  background: "#f9fafb",
-                  color: "#111827",
+                  display: "grid",
+                  gap: 8,
+                  minWidth: 220,
                 }}
               >
-                <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Selected Program Session</div>
-                <div style={{ marginBottom: 4 }}>{selectedProgramKey}</div>
-                <div style={{ fontSize: 14 }}>
-                  <strong>Current exercise:</strong> {selectedProgramRow.exercise_name}
+                <div
+                  style={{
+                    border: "1px solid #bbf7d0",
+                    borderRadius: 8,
+                    background: "#f0fdf4",
+                    padding: 10,
+                    color: "#166534",
+                  }}
+                >
+                  <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 4 }}>Today's Log</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, lineHeight: 1.2 }}>
+                    {todaysSavedSetCount} / {todaysPlannedSetCount || 0} sets saved
+                  </div>
+                  <div style={{ fontSize: 12, marginTop: 4, color: "#15803d" }}>
+                    {selectedProgramRows.length > 0
+                      ? `${selectedProgramRows.length} exercises in this session`
+                      : "Choose a workout to begin"}
+                  </div>
                 </div>
-                <div style={{ fontSize: 14 }}>
-                  <strong>Prescription:</strong> {selectedProgramRow.sets ?? ""} sets x {selectedProgramRow.reps ?? ""} reps
-                </div>
-                <div style={{ fontSize: 14 }}>
-                  <strong>Target RPE:</strong> {selectedProgramRow.target_rpe ?? ""}
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setTab("program")}
+                  style={{
+                    minHeight: 44,
+                    padding: "10px 14px",
+                    cursor: "pointer",
+                    borderRadius: 8,
+                    border: "1px solid #d1d5db",
+                    background: "#ffffff",
+                    color: "#111827",
+                  }}
+                >
+                  Back to Program
+                </button>
               </div>
-            )}
+            </div>
 
-            <Field label="Date">
+            <Field label="Workout Date">
               <input
-                style={inputStyle}
+                style={{ ...compactWorkoutInputStyle, maxWidth: 220 }}
                 type="date"
                 value={liftForm.entry_date}
                 onChange={(e) => setLiftForm({ ...liftForm, entry_date: e.target.value })}
               />
             </Field>
-            <Field label="Exercise">
-              <input
-                style={inputStyle}
-                value={liftForm.exercise_name}
-                onChange={(e) => setLiftForm({ ...liftForm, exercise_name: e.target.value })}
-              />
-            </Field>
-            
-            <Field label="Set Number">
-              <input
-              style={inputStyle}
-              type="number"
-              min="1"
-              value={liftForm.set_no ?? 1}
-              onChange={(e) =>
-              setLiftForm({
-              ...liftForm,
-              set_no: e.target.value === "" ? null : Number(e.target.value),
-              })
-    }
-  />
-</Field>
-            <Field label="Planned Sets">
-              <input
-                style={inputStyle}
-                type="number"
-                value={liftForm.sets ?? ""}
-                onChange={(e) => setLiftForm({ ...liftForm, sets: Number(e.target.value) || null })}
-              />
-            </Field>
-            <Field label="Actual Reps">
-              <input
-                style={inputStyle}
-                value={liftForm.reps ?? ""}
-                onChange={(e) => setLiftForm({ ...liftForm, reps: e.target.value })}
-              />
-            </Field>
-            <Field label="Weight">
-              <input
-                style={inputStyle}
-                type="number"
-                value={liftForm.weight ?? ""}
-                onChange={(e) => setLiftForm({ ...liftForm, weight: e.target.value === "" ? null : Number(e.target.value) })}
-              />
-            </Field>
-            <Field label="RPE">
-              <input
-                style={inputStyle}
-                type="number"
-                step="0.5"
-                value={liftForm.rpe ?? ""}
-                onChange={(e) => setLiftForm({ ...liftForm, rpe: e.target.value === "" ? null : Number(e.target.value) })}
-              />
-            </Field>
-            <Field label="Pain">
-              <input
-                style={inputStyle}
-                type="number"
-                min="0"
-                max="10"
-                value={liftForm.pain_score ?? ""}
-                onChange={(e) => setLiftForm({ ...liftForm, pain_score: e.target.value === "" ? null : Number(e.target.value) })}
-              />
-            </Field>
-            <Field label="Energy">
-              <input
-                style={inputStyle}
-                type="number"
-                min="1"
-                max="10"
-                value={liftForm.energy_score ?? ""}
-                onChange={(e) => setLiftForm({ ...liftForm, energy_score: e.target.value === "" ? null : Number(e.target.value) })}
-              />
-            </Field>
-            <Field label="Notes">
-              <textarea
-                style={{ ...inputStyle, minHeight: 90, resize: "vertical" }}
-                value={liftForm.notes ?? ""}
-                onChange={(e) => setLiftForm({ ...liftForm, notes: e.target.value })}
-              />
-            </Field>
 
-            <button
-              onClick={saveLift}
-              disabled={saving}
-              style={{
-                padding: "10px 14px",
-                cursor: "pointer",
-                borderRadius: 8,
-                border: "1px solid #059669",
-                background: "#059669",
-                color: "#ffffff",
-              }}
-            >
-              {saving ? "Saving..." : "Save workout"}
-            </button>
-          </section>
+            {selectedProgramRows.length === 0 ? (
+              <p style={{ color: "#374151", marginBottom: 0 }}>Choose a workout from the Program tab.</p>
+            ) : (
+              <div style={{ display: "grid", gap: 14 }}>
+                {selectedProgramRows.map((row, rowIndex) => {
+                  const plannedSets = getProgramPlannedSets(row);
+                  const effectiveExerciseName = getSessionExerciseName(row, rowIndex);
+                  const substituteOptions = EXERCISE_SUBSTITUTIONS[row.exercise_name] ?? [];
+                  const rowKey = getProgramRowKey(row, rowIndex);
+                  const extraSets = sessionExtraSets[rowKey] ?? 0;
+                  const totalSets = plannedSets + extraSets;
 
-          <section style={cardStyle}>
-            <h2 style={{ marginTop: 0, color: "#111827" }}>Recent workout logs</h2>
-            <SimpleTable
-              columns={["Date", "Exercise", "Set", "Reps", "Weight", "RPE", "Pain"]}
-              rows={liftLogs.map((row) => [
-                row.entry_date,
-                row.exercise_name,
-                row.set_no ?? "",
-                row.reps ?? "",
-                row.weight ?? "",
-                row.rpe ?? "",
-                row.pain_score ?? "",
-  ])}
-/>
+                  return (
+                    <div
+                      key={rowKey}
+                      style={{
+                        border: "1px solid #e5e7eb",
+                        borderRadius: 8,
+                        padding: 10,
+                        background: "#fcfcfd",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          gap: 12,
+                          flexWrap: "wrap",
+                          marginBottom: 8,
+                        }}
+                      >
+                        <div>
+                          <h3 style={{ margin: "0 0 2px", color: "#111827", fontSize: 18 }}>{effectiveExerciseName}</h3>
+                          {effectiveExerciseName !== row.exercise_name ? (
+                            <div style={{ fontSize: 12, color: "#6b7280" }}>Swapped from {row.exercise_name}</div>
+                          ) : null}
+                        </div>
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                          <div style={workoutMetaPillStyle}>{plannedSets} x {row.reps ?? ""}</div>
+                          {row.target_rpe ? <div style={workoutMetaPillStyle}>RPE {row.target_rpe}</div> : null}
+                          {substituteOptions.length > 0 ? (
+                            <select
+                              aria-label={`Swap ${row.exercise_name}`}
+                              style={{ ...compactWorkoutInputStyle, width: "auto", minWidth: 170 }}
+                              value={effectiveExerciseName}
+                              onChange={(e) =>
+                                setSessionExerciseOverrides((prev) => ({
+                                  ...prev,
+                                  [rowKey]: e.target.value,
+                                }))
+                              }
+                            >
+                              <option value={row.exercise_name}>Swap: Keep {row.exercise_name}</option>
+                              {substituteOptions.map((option) => (
+                                <option key={option} value={option}>
+                                  {option}
+                                </option>
+                              ))}
+                            </select>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      <div style={{ display: "grid", gap: 8 }}>
+                        {Array.from({ length: totalSets }, (_, index) => {
+                          const setNo = index + 1;
+                          const key = getLiftSetKey(row, rowIndex, setNo);
+                          const draft = liftSetDrafts[key] ?? {};
+                          const savedLog = getSavedLogForSessionRow(row, rowIndex, setNo);
+                          const isSaved = !!savedLog;
+                          const isExtraSet = setNo > plannedSets;
+                          const rowValues = {
+                            reps: savedLog?.reps ?? draft.reps ?? "",
+                            weight: savedLog?.weight ?? draft.weight ?? "",
+                            rpe: savedLog?.rpe ?? draft.rpe ?? "",
+                            pain_score: savedLog?.pain_score ?? draft.pain_score ?? "",
+                            energy_score: savedLog?.energy_score ?? draft.energy_score ?? "",
+                            notes: savedLog?.notes ?? draft.notes ?? "",
+                          };
+
+                          return (
+                            <div
+                              key={key}
+                              style={{
+                                display: "grid",
+                                gap: 8,
+                                border: isSaved ? "1px solid #4ade80" : "1px solid #e5e7eb",
+                                borderRadius: 8,
+                                background: isSaved ? "#f0fdf4" : "#ffffff",
+                                padding: isSaved ? 8 : 10,
+                                boxShadow: isSaved ? "inset 0 0 0 1px #dcfce7" : "none",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  display: "grid",
+                                  gridTemplateColumns: "72px repeat(auto-fit, minmax(84px, 1fr)) minmax(96px, 120px)",
+                                  gap: 8,
+                                  alignItems: "center",
+                                }}
+                              >
+                                <div style={{ ...workoutMetaPillStyle, justifyContent: "center", minHeight: 40 }}>
+                                  Set {setNo}{isExtraSet ? " +" : ""}
+                                </div>
+                                <input
+                                  aria-label={`Reps for ${effectiveExerciseName} set ${setNo}`}
+                                  placeholder="Reps"
+                                  style={compactWorkoutInputStyle}
+                                  value={rowValues.reps}
+                                  readOnly={isSaved}
+                                  onChange={(e) => updateLiftSetDraft(key, { reps: e.target.value })}
+                                />
+                                <input
+                                  aria-label={`Weight for ${effectiveExerciseName} set ${setNo}`}
+                                  placeholder="Weight"
+                                  style={compactWorkoutInputStyle}
+                                  type="number"
+                                  value={rowValues.weight}
+                                  readOnly={isSaved}
+                                  onChange={(e) =>
+                                    updateLiftSetDraft(key, {
+                                      weight: e.target.value === "" ? null : Number(e.target.value),
+                                    })
+                                  }
+                                />
+                                <input
+                                  aria-label={`RPE for ${effectiveExerciseName} set ${setNo}`}
+                                  placeholder="RPE"
+                                  style={compactWorkoutInputStyle}
+                                  type="number"
+                                  step="0.5"
+                                  value={rowValues.rpe}
+                                  readOnly={isSaved}
+                                  onChange={(e) =>
+                                    updateLiftSetDraft(key, {
+                                      rpe: e.target.value === "" ? null : Number(e.target.value),
+                                    })
+                                  }
+                                />
+                                <input
+                                  aria-label={`Pain for ${effectiveExerciseName} set ${setNo}`}
+                                  placeholder="Pain"
+                                  style={compactWorkoutInputStyle}
+                                  type="number"
+                                  min="0"
+                                  max="10"
+                                  value={rowValues.pain_score}
+                                  readOnly={isSaved}
+                                  onChange={(e) =>
+                                    updateLiftSetDraft(key, {
+                                      pain_score: e.target.value === "" ? null : Number(e.target.value),
+                                    })
+                                  }
+                                />
+                                <input
+                                  aria-label={`Energy for ${effectiveExerciseName} set ${setNo}`}
+                                  placeholder="Energy"
+                                  style={compactWorkoutInputStyle}
+                                  type="number"
+                                  min="1"
+                                  max="10"
+                                  value={rowValues.energy_score}
+                                  readOnly={isSaved}
+                                  onChange={(e) =>
+                                    updateLiftSetDraft(key, {
+                                      energy_score: e.target.value === "" ? null : Number(e.target.value),
+                                    })
+                                  }
+                                />
+                                <div style={{ display: "grid", gap: 6 }}>
+                                  {isSaved ? (
+                                    <div
+                                      style={{
+                                        fontSize: 12,
+                                        fontWeight: 700,
+                                        color: "#166534",
+                                        textAlign: "center",
+                                        background: "#dcfce7",
+                                        borderRadius: 999,
+                                        padding: "4px 8px",
+                                      }}
+                                    >
+                                      ✓ Saved
+                                    </div>
+                                  ) : null}
+                                  <button
+                                    type="button"
+                                    onClick={() => saveLift(row, rowIndex, setNo)}
+                                    disabled={saving || isSaved}
+                                    style={{
+                                      minHeight: 40,
+                                      padding: "8px 12px",
+                                      cursor: saving || isSaved ? "not-allowed" : "pointer",
+                                      borderRadius: 8,
+                                      border: isSaved ? "1px solid #86efac" : "1px solid #059669",
+                                      background: isSaved ? "#dcfce7" : "#059669",
+                                      color: isSaved ? "#166534" : "#ffffff",
+                                      fontWeight: 700,
+                                    }}
+                                  >
+                                    {saving ? "Saving..." : isSaved ? "Saved" : "Save"}
+                                  </button>
+                                </div>
+                              </div>
+                              <input
+                                aria-label={`Notes for ${effectiveExerciseName} set ${setNo}`}
+                                placeholder="Notes (optional)"
+                                style={compactWorkoutInputStyle}
+                                value={rowValues.notes}
+                                readOnly={isSaved}
+                                onChange={(e) => updateLiftSetDraft(key, { notes: e.target.value })}
+                              />
+                            </div>
+                          );
+                        })}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSessionExtraSets((prev) => ({
+                              ...prev,
+                              [rowKey]: (prev[rowKey] ?? 0) + 1,
+                            }))
+                          }
+                          style={{
+                            minHeight: 40,
+                            padding: "8px 12px",
+                            cursor: "pointer",
+                            borderRadius: 8,
+                            border: "1px dashed #9ca3af",
+                            background: "#ffffff",
+                            color: "#374151",
+                            fontWeight: 600,
+                          }}
+                        >
+                          Add Set
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </section>
         </div>
       )}
-
       {tab === "diet" && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
           <section style={cardStyle}>
