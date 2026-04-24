@@ -24,3 +24,16 @@ dist-ssr
 *.sln
 *.sw?
 Anthropic API.txt
+
+# Local project notes / handoffs
+*handoff*.txt
+*HANDOFF*.txt
+CODING PROMPTS.txt
+Friday handoff.txt
+recomp_coach_v1_implementation_pack.md
+
+# Local login / credential notes
+*login info*.txt
+*Login Info*.txt
+*credentials*.txt
+*secrets*.txt

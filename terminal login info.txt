@@ -1,3 +1,0 @@
-C:\Users\dchia\Desktop\recomp-coach
-
-npm run dev
