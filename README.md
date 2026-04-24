@@ -43,6 +43,17 @@ export default defineConfig([
 ])
 ```
 
+## Vercel SPA routing
+
+This app uses React Router browser paths such as `/workout`, `/program`, and `/settings`.
+Direct navigation or browser refresh on those paths requires an SPA fallback in Vercel.
+
+`vercel.json` includes:
+
+- `rewrites` from `/(.*)` to `/index.html`
+
+This ensures all client-side routes resolve to the Vite app entry so refresh does not return `404 NOT_FOUND`.
+
 You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
 
 ```js
