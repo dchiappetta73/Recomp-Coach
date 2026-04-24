@@ -175,6 +175,41 @@ export async function getInProgressWorkoutSession(
   return (data as unknown as WorkoutSession | null) ?? null;
 }
 
+export async function getLatestWorkoutSessionForWorkout(params: {
+  athleteId: string;
+  programTemplateId?: string | null;
+  sessionDate: string;
+  weekNumber: number;
+  dayNumber: number;
+  sessionName: string;
+}): Promise<WorkoutSession | null> {
+  let query = supabase
+    .from("workout_sessions")
+    .select("*")
+    .eq("athlete_id", params.athleteId)
+    .eq("session_date", params.sessionDate)
+    .eq("week_number", params.weekNumber)
+    .eq("day_number", params.dayNumber)
+    .eq("session_name", params.sessionName)
+    .in("status", ["in_progress", "completed"]);
+
+  if (params.programTemplateId) {
+    query = query.eq("program_template_id", params.programTemplateId);
+  }
+
+  const { data, error } = await query
+    .order("updated_at", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false, nullsFirst: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return (data as unknown as WorkoutSession | null) ?? null;
+}
+
 export async function createWorkoutSession(params: {
   athleteId: string;
   programTemplateId?: string | null;

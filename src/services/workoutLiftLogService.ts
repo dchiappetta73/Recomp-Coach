@@ -24,36 +24,36 @@ export interface WorkoutLiftLogEntry {
   substitution_flag?: boolean;
 }
 
+const liftLogSelectFields = [
+  "id",
+  "athlete_id",
+  "entry_date",
+  "week_no",
+  "block",
+  "day_no",
+  "session_name",
+  "exercise_name",
+  "rpe",
+  "notes",
+  "created_at",
+  "updated_at",
+  "set_no",
+  "planned_sets",
+  "planned_reps",
+  "workout_session_id",
+  "completed_sets",
+  "completed_reps",
+  "completed_weight",
+  "exercise_variant_used",
+  "substitution_flag",
+].join(",");
+
 export async function getLiftLogsForWorkoutSession(
   workoutSessionId: string
 ): Promise<WorkoutLiftLogEntry[]> {
   const { data, error } = await supabase
     .from("lift_logs")
-    .select(
-      [
-        "id",
-        "athlete_id",
-        "entry_date",
-        "week_no",
-        "block",
-        "day_no",
-        "session_name",
-        "exercise_name",
-        "rpe",
-        "notes",
-        "created_at",
-        "updated_at",
-        "set_no",
-        "planned_sets",
-        "planned_reps",
-        "workout_session_id",
-        "completed_sets",
-        "completed_reps",
-        "completed_weight",
-        "exercise_variant_used",
-        "substitution_flag",
-      ].join(",")
-    )
+    .select(liftLogSelectFields)
     .eq("workout_session_id", workoutSessionId)
     .order("exercise_name", { ascending: true })
     .order("set_no", { ascending: true, nullsFirst: false })
@@ -109,31 +109,7 @@ export async function createLiftLogSetEntry(params: {
   const { data, error } = await supabase
     .from("lift_logs")
     .insert([payload])
-    .select(
-      [
-        "id",
-        "athlete_id",
-        "entry_date",
-        "week_no",
-        "block",
-        "day_no",
-        "session_name",
-        "exercise_name",
-        "rpe",
-        "notes",
-        "created_at",
-        "updated_at",
-        "set_no",
-        "planned_sets",
-        "planned_reps",
-        "workout_session_id",
-        "completed_sets",
-        "completed_reps",
-        "completed_weight",
-        "exercise_variant_used",
-        "substitution_flag",
-      ].join(",")
-    )
+    .select(liftLogSelectFields)
     .single();
 
   if (error) {
@@ -141,4 +117,42 @@ export async function createLiftLogSetEntry(params: {
   }
 
   return data as unknown as WorkoutLiftLogEntry;
+}
+
+export async function updateLiftLogSetEntry(
+  id: string,
+  patch: {
+    completedReps?: number | null;
+    completedWeight?: number | null;
+    rpe?: number | null;
+    notes?: string | null;
+  }
+): Promise<WorkoutLiftLogEntry> {
+  const payload = {
+    completed_reps: patch.completedReps ?? null,
+    completed_weight: patch.completedWeight ?? null,
+    rpe: patch.rpe ?? null,
+    notes: patch.notes ?? null,
+  };
+
+  const { data, error } = await supabase
+    .from("lift_logs")
+    .update(payload)
+    .eq("id", id)
+    .select(liftLogSelectFields)
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data as unknown as WorkoutLiftLogEntry;
+}
+
+export async function deleteLiftLogSetEntry(id: string): Promise<void> {
+  const { error } = await supabase.from("lift_logs").delete().eq("id", id);
+
+  if (error) {
+    throw error;
+  }
 }

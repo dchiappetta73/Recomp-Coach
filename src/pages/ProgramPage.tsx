@@ -215,6 +215,34 @@ function formatExercisePrescription(exercise: {
   return setText;
 }
 
+function getPlannedSessionKey(session: {
+  week_no: number;
+  day_no: number;
+  session_name: string;
+  exercises: Array<{ id: string }>;
+}): string {
+  return [
+    session.week_no,
+    session.day_no,
+    session.session_name,
+    session.exercises[0]?.id ?? "",
+  ].join("__");
+}
+
+function getSelectedWorkoutStorageKey(athleteId: string): string {
+  return `recompCoach:selectedWorkoutKey:${athleteId}`;
+}
+
+function storeSelectedWorkoutKey(athleteId: string, workoutKey: string) {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(getSelectedWorkoutStorageKey(athleteId), workoutKey);
+  } catch {
+    // Ignore storage failures so navigation still works.
+  }
+}
+
 export default function ProgramPage() {
   const navigate = useNavigate();
   const [athlete, setAthlete] = useState<Athlete | null>(null);
@@ -281,6 +309,14 @@ export default function ProgramPage() {
     return programWeeks[0]?.days[0]?.sessions[0] ?? null;
   }, [programWeeks]);
 
+  function openWorkout(session: NonNullable<typeof nextSession>) {
+    if (athlete) {
+      storeSelectedWorkoutKey(athlete.id, getPlannedSessionKey(session));
+    }
+
+    navigate("/workout");
+  }
+
   return (
     <PageSection title="Program">
       {isLoading ? (
@@ -328,10 +364,10 @@ export default function ProgramPage() {
               <div style={styles.actionRow}>
                 <button
                   type="button"
-                  onClick={() => navigate("/workout")}
+                  onClick={() => openWorkout(nextSession)}
                   style={styles.buttonPrimary}
                 >
-                  Open Workout
+                  Open Next Workout
                 </button>
               </div>
             ) : null}
@@ -398,7 +434,7 @@ export default function ProgramPage() {
                           <div style={styles.actionRow}>
                             <button
                               type="button"
-                              onClick={() => navigate("/workout")}
+                              onClick={() => openWorkout(session)}
                               style={styles.buttonPrimary}
                             >
                               Open Workout
