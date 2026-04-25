@@ -1,6 +1,7 @@
 import type { GoalType } from "./goals";
 
-export type WorkoutSessionStatus = "not_started" | "in_progress" | "completed";
+export type WorkoutSessionStatus = "planned" | "in_progress" | "completed" | "skipped";
+export type PrehabCompletedStatus = "yes" | "partial" | "no";
 
 export interface WorkoutSession {
   id: string;
@@ -11,13 +12,20 @@ export interface WorkoutSession {
   block_label?: string | null;
   day_number?: number | null;
   session_name?: string | null;
-  status: string;
+  status: WorkoutSessionStatus;
   goal_type_at_time?: GoalType | null;
   planned_exercise_count?: number | null;
   completed_exercise_count?: number | null;
   total_sets?: number | null;
   avg_rpe?: number | null;
   pain_flag?: boolean;
+  duration_min?: number | null;
+  pain_score?: number | null;
+  pain_location?: string | null;
+  pain_description?: string | null;
+  aggravated_movements?: string | null;
+  felt_good_movements?: string | null;
+  prehab_completed?: PrehabCompletedStatus | null;
   energy_score?: number | null;
   notes?: string | null;
   created_at?: string;

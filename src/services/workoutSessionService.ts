@@ -3,6 +3,7 @@ import { orderSessionExercises } from "../utils/orderSessionExercises";
 import type {
   PlannedWorkoutExercise,
   PlannedWorkoutSession,
+  PrehabCompletedStatus,
   WorkoutSession,
 } from "../types/workoutSession";
 
@@ -258,6 +259,13 @@ export async function finishWorkoutSession(params: {
   completedExerciseCount: number;
   totalSets: number;
   avgRpe: number | null;
+  durationMin?: number | null;
+  painScore?: number | null;
+  painLocation?: string | null;
+  painDescription?: string | null;
+  aggravatedMovements?: string | null;
+  feltGoodMovements?: string | null;
+  prehabCompleted?: PrehabCompletedStatus | null;
   notes?: string | null;
 }): Promise<WorkoutSession> {
   const { data, error } = await supabase
@@ -267,6 +275,13 @@ export async function finishWorkoutSession(params: {
       completed_exercise_count: params.completedExerciseCount,
       total_sets: params.totalSets,
       avg_rpe: params.avgRpe,
+      duration_min: params.durationMin ?? null,
+      pain_score: params.painScore ?? null,
+      pain_location: params.painLocation ?? null,
+      pain_description: params.painDescription ?? null,
+      aggravated_movements: params.aggravatedMovements ?? null,
+      felt_good_movements: params.feltGoodMovements ?? null,
+      prehab_completed: params.prehabCompleted ?? null,
       notes: params.notes ?? null,
     })
     .eq("id", params.workoutSessionId)

@@ -59,6 +59,7 @@ export async function getMeasurementLogsForAthlete(
         "right_thigh_in",
         "notes",
         "created_at",
+        "updated_at",
       ].join(",")
     )
     .eq("athlete_id", athleteId)

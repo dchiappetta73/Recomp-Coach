@@ -1,28 +1,7 @@
 import { supabase } from "./supabaseClient";
+import type { LiftLog, LiftLogExerciseStatus } from "../types/liftLog";
 
-export interface WorkoutLiftLogEntry {
-  id: string;
-  athlete_id?: string | null;
-  entry_date: string;
-  week_no?: number | null;
-  block?: string | null;
-  day_no?: number | null;
-  session_name?: string | null;
-  exercise_name: string;
-  rpe?: number | null;
-  notes?: string | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-  set_no?: number | null;
-  planned_sets?: number | null;
-  planned_reps?: string | null;
-  workout_session_id?: string | null;
-  completed_sets?: number | null;
-  completed_reps?: number | null;
-  completed_weight?: number | null;
-  exercise_variant_used?: string | null;
-  substitution_flag?: boolean;
-}
+export type WorkoutLiftLogEntry = LiftLog;
 
 const liftLogSelectFields = [
   "id",
@@ -37,6 +16,7 @@ const liftLogSelectFields = [
   "notes",
   "created_at",
   "updated_at",
+  "set_number",
   "set_no",
   "planned_sets",
   "planned_reps",
@@ -44,6 +24,12 @@ const liftLogSelectFields = [
   "completed_sets",
   "completed_reps",
   "completed_weight",
+  "unit",
+  "pain_score",
+  "energy_score",
+  "exercise_status",
+  "skip_reason",
+  "added_reason",
   "exercise_variant_used",
   "substitution_flag",
 ].join(",");
@@ -56,7 +42,7 @@ export async function getLiftLogsForWorkoutSession(
     .select(liftLogSelectFields)
     .eq("workout_session_id", workoutSessionId)
     .order("exercise_name", { ascending: true })
-    .order("set_no", { ascending: true, nullsFirst: false })
+    .order("set_number", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: true });
 
   if (error) {
@@ -74,13 +60,19 @@ export async function createLiftLogSetEntry(params: {
   dayNo: number;
   sessionName: string;
   exerciseName: string;
+  setNumber?: number | null;
   setNo: number;
   plannedSets?: number | null;
   plannedReps?: string | null;
   completedReps?: number | null;
   completedWeight?: number | null;
   rpe?: number | null;
+  painScore?: number | null;
+  energyScore?: number | null;
   notes?: string | null;
+  exerciseStatus?: LiftLogExerciseStatus | null;
+  skipReason?: string | null;
+  addedReason?: string | null;
   workoutSessionId: string;
   exerciseVariantUsed?: string | null;
   substitutionFlag?: boolean;
@@ -93,14 +85,21 @@ export async function createLiftLogSetEntry(params: {
     day_no: params.dayNo,
     session_name: params.sessionName,
     exercise_name: params.exerciseName,
+    set_number: params.setNumber ?? params.setNo,
     set_no: params.setNo,
     planned_sets: params.plannedSets ?? null,
     planned_reps: params.plannedReps ?? null,
     completed_sets: 1,
     completed_reps: params.completedReps ?? null,
     completed_weight: params.completedWeight ?? null,
+    unit: "lb",
     rpe: params.rpe ?? null,
+    pain_score: params.painScore ?? null,
+    energy_score: params.energyScore ?? null,
     notes: params.notes ?? null,
+    exercise_status: params.exerciseStatus ?? "completed",
+    skip_reason: params.skipReason ?? null,
+    added_reason: params.addedReason ?? null,
     workout_session_id: params.workoutSessionId,
     exercise_variant_used: params.exerciseVariantUsed ?? null,
     substitution_flag: params.substitutionFlag ?? false,
@@ -125,15 +124,51 @@ export async function updateLiftLogSetEntry(
     completedReps?: number | null;
     completedWeight?: number | null;
     rpe?: number | null;
+    painScore?: number | null;
+    energyScore?: number | null;
     notes?: string | null;
+    exerciseStatus?: LiftLogExerciseStatus | null;
+    skipReason?: string | null;
+    addedReason?: string | null;
   }
 ): Promise<WorkoutLiftLogEntry> {
-  const payload = {
-    completed_reps: patch.completedReps ?? null,
-    completed_weight: patch.completedWeight ?? null,
-    rpe: patch.rpe ?? null,
-    notes: patch.notes ?? null,
-  };
+  const payload: Record<string, string | number | null> = {};
+
+  if ("completedReps" in patch) {
+    payload.completed_reps = patch.completedReps ?? null;
+  }
+
+  if ("completedWeight" in patch) {
+    payload.completed_weight = patch.completedWeight ?? null;
+  }
+
+  if ("rpe" in patch) {
+    payload.rpe = patch.rpe ?? null;
+  }
+
+  if ("painScore" in patch) {
+    payload.pain_score = patch.painScore ?? null;
+  }
+
+  if ("energyScore" in patch) {
+    payload.energy_score = patch.energyScore ?? null;
+  }
+
+  if ("notes" in patch) {
+    payload.notes = patch.notes ?? null;
+  }
+
+  if ("exerciseStatus" in patch) {
+    payload.exercise_status = patch.exerciseStatus ?? null;
+  }
+
+  if ("skipReason" in patch) {
+    payload.skip_reason = patch.skipReason ?? null;
+  }
+
+  if ("addedReason" in patch) {
+    payload.added_reason = patch.addedReason ?? null;
+  }
 
   const { data, error } = await supabase
     .from("lift_logs")

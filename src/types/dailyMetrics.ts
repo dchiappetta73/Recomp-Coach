@@ -1,5 +1,7 @@
 import type { GoalType } from "./goals";
 
+export type SourceName = "manual" | "zepp" | "cronometer" | "upload";
+
 export interface DailyMetric {
   id: string;
   athlete_id: string;
@@ -32,6 +34,11 @@ export interface DailyMetric {
   pai_score?: number | null;
   energy_score?: number | null;
   manual_notes?: string | null;
+  source_weight?: SourceName | null;
+  source_nutrition?: SourceName | null;
+  source_sleep?: SourceName | null;
+  source_activity?: SourceName | null;
+  source_hr?: SourceName | null;
   created_at?: string;
   updated_at?: string;
 }

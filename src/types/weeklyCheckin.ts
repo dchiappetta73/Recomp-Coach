@@ -14,6 +14,12 @@ export interface WeeklyCheckin {
   avg_sleep_minutes?: number | null;
   avg_steps?: number | null;
   training_sessions_logged?: number | null;
+  went_well?: string | null;
+  difficult?: string | null;
+  schedule_issues?: string | null;
+  pain_injury_changes?: string | null;
+  requested_adjustments?: string | null;
+  readiness_score?: number | null;
   overall_status?: string | null;
   observations?: string | null;
   recommendations?: string | null;
