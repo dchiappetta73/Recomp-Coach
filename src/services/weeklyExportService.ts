@@ -91,7 +91,7 @@ function formatPainNotes(session: WorkoutSession) {
   const painDescription = session.pain_description?.trim();
 
   if (painLocation && painDescription) {
-    return `${painLocation} — ${painDescription}`;
+    return `${painLocation} - ${painDescription}`;
   }
 
   if (painLocation) return painLocation;
@@ -146,7 +146,7 @@ function formatCompletedExerciseLine(exerciseName: string, rows: LiftLog[]) {
   );
   const rpe = formatRpe(sortedRows.map((row) => row.rpe));
 
-  return `${exerciseName} — ${sets}×${reps} @ ${loads} · RPE ${rpe}`;
+  return `${exerciseName} - ${sets}x${reps} @ ${loads} - RPE ${rpe}`;
 }
 
 function formatSkippedAndAddedLines(liftLogs: LiftLog[]) {
@@ -154,10 +154,10 @@ function formatSkippedAndAddedLines(liftLogs: LiftLog[]) {
     .filter((liftLog) => liftLog.exercise_status === "skipped" || liftLog.exercise_status === "added")
     .map((liftLog) => {
       if (liftLog.exercise_status === "skipped") {
-        return `Skipped: ${liftLog.exercise_name} — ${textValue(liftLog.skip_reason, "none")}`;
+        return `Skipped: ${liftLog.exercise_name} - ${textValue(liftLog.skip_reason, "none")}`;
       }
 
-      return `Added: ${liftLog.exercise_name} — ${textValue(liftLog.added_reason, "none")}`;
+      return `Added: ${liftLog.exercise_name} - ${textValue(liftLog.added_reason, "none")}`;
     });
 }
 
@@ -180,7 +180,7 @@ function formatPhotosTaken(value: boolean | null | undefined) {
 function formatTrainingSection(sessions: WorkoutSession[], liftLogsBySessionId: Map<string, LiftLog[]>) {
   const completedCount = sessions.filter((session) => session.status === "completed").length;
   const lines = [
-    "── TRAINING ──────────────────────────",
+    "-- TRAINING --------------------------",
     `Sessions completed: ${completedCount} of ${sessions.length} planned`,
     "",
   ];
@@ -196,9 +196,9 @@ function formatTrainingSection(sessions: WorkoutSession[], liftLogsBySessionId: 
     const completedGroups = groupCompletedLiftsByExercise(liftLogs);
     const skippedAndAddedLines = formatSkippedAndAddedLines(liftLogs);
 
-    lines.push(`${formatWeekday(session.session_date)} · ${textValue(session.session_name)}`);
-    lines.push(`Date: ${session.session_date} · Duration: ${numberValue(session.duration_min)} min`);
-    lines.push(`Energy: ${numberValue(session.energy_score)} · Pain: ${numberValue(session.pain_score)}`);
+    lines.push(`${formatWeekday(session.session_date)} - ${textValue(session.session_name)}`);
+    lines.push(`Date: ${session.session_date} - Duration: ${numberValue(session.duration_min)} min`);
+    lines.push(`Energy: ${numberValue(session.energy_score)} - Pain: ${numberValue(session.pain_score)}`);
     lines.push(`Pain notes: ${formatPainNotes(session)}`);
     lines.push(`Prehab completed: ${textValue(session.prehab_completed)}`);
     lines.push("");
@@ -226,7 +226,7 @@ function formatTrainingSection(sessions: WorkoutSession[], liftLogsBySessionId: 
 
 function formatDailyMetricsSection(dailyMetrics: DailyMetric[]) {
   return [
-    "── DAILY METRICS (weekly averages) ───",
+    "-- DAILY METRICS (weekly averages) ---",
     `Avg weight: ${roundedAverage(dailyMetrics.map((metric) => metric.weight_lb), 1)} lbs`,
     `Avg calories: ${roundedAverage(dailyMetrics.map((metric) => metric.calories))} kcal`,
     `Avg protein: ${roundedAverage(dailyMetrics.map((metric) => metric.protein_g))}g`,
@@ -241,7 +241,7 @@ function formatDailyMetricsSection(dailyMetrics: DailyMetric[]) {
 
 function formatWeeklyCheckinSection(weeklyCheckin: WeeklyCheckin | null) {
   return [
-    "── WEEKLY CHECK-IN ────────────────────",
+    "-- WEEKLY CHECK-IN -------------------",
     `What went well: ${textValue(weeklyCheckin?.went_well, "none")}`,
     `What was difficult: ${textValue(weeklyCheckin?.difficult, "none")}`,
     `Schedule issues: ${textValue(weeklyCheckin?.schedule_issues, "none")}`,
@@ -254,8 +254,8 @@ function formatWeeklyCheckinSection(weeklyCheckin: WeeklyCheckin | null) {
 
 function formatPhotosSection(visualAssessment: WeeklyVisualAssessment | null) {
   return [
-    "── PHOTOS ─────────────────────────────",
-    `Photos taken: ${formatPhotosTaken(visualAssessment?.photos_taken)} · Date: ${textValue(
+    "-- PHOTOS ----------------------------",
+    `Photos taken: ${formatPhotosTaken(visualAssessment?.photos_taken)} - Date: ${textValue(
       visualAssessment?.assessment_date
     )}`,
     `Notes: ${textValue(visualAssessment?.photo_notes, "none")}`,
@@ -331,13 +331,13 @@ export async function generateWeeklyExport(params: GenerateWeeklyExportParams): 
   const liftLogsBySessionId = groupByWorkoutSession(liftLogs);
 
   return [
-    `WEEK ${params.weekNumber} EXPORT — ${params.weekStartDate} to ${params.weekEndDate}`,
+    `WEEK ${params.weekNumber} EXPORT - ${params.weekStartDate} to ${params.weekEndDate}`,
     `Generated: ${formatGeneratedDate()}`,
     "",
     ...formatTrainingSection(sessions, liftLogsBySessionId),
     ...formatDailyMetricsSection(dailyMetrics),
     ...formatWeeklyCheckinSection(weeklyCheckin),
     ...formatPhotosSection(visualAssessment),
-    `── END WEEK ${params.weekNumber} EXPORT ────────────────`,
+    `-- END WEEK ${params.weekNumber} EXPORT ---------------`,
   ].join("\n");
 }

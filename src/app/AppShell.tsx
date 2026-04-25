@@ -2,14 +2,12 @@ import { NavLink, Outlet } from "react-router-dom";
 
 const navItems = [
   { to: "/", label: "Dashboard" },
-  { to: "/program", label: "Program" },
   { to: "/workout", label: "Workout" },
   { to: "/daily-metrics", label: "Daily Metrics" },
   { to: "/weekly-checkin", label: "Weekly Check-In" },
+  { to: "/photos", label: "Photos" },
   { to: "/weekly-export", label: "Weekly Export" },
-  { to: "/progress-hub", label: "Progress Hub" },
-  { to: "/analysis", label: "Analysis" },
-  { to: "/integrations", label: "Integrations" },
+  { to: "/program-viewer", label: "Program Viewer" },
   { to: "/settings", label: "Settings" },
 ];
 
@@ -28,7 +26,7 @@ export default function AppShell() {
       >
         <h1 style={{ margin: 0, fontSize: "24px" }}>Recomp Coach Platform</h1>
         <p style={{ margin: "4px 0 0", color: "#94a3b8", fontSize: "13px" }}>
-          Goal-flexible health, training, and progress system
+          Data entry, session history, and weekly export
         </p>
       </header>
 
