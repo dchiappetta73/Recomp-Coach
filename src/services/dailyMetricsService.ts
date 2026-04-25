@@ -43,6 +43,7 @@ export async function upsertDailyMetricEntry(params: {
   athleteId: string;
   metricDate: string;
   goalTypeAtTime?: string | null;
+  weightLb?: number | null;
   calories?: number | null;
   proteinG?: number | null;
   carbsG?: number | null;
@@ -58,6 +59,7 @@ export async function upsertDailyMetricEntry(params: {
     athlete_id: params.athleteId,
     metric_date: params.metricDate,
     goal_type_at_time: params.goalTypeAtTime ?? null,
+    weight_lb: params.weightLb ?? null,
     calories: params.calories ?? null,
     protein_g: params.proteinG ?? null,
     carbs_g: params.carbsG ?? null,

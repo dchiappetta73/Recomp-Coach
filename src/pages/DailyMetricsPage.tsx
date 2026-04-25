@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import PageSection from "../components/shared/PageSection";
 import { getCurrentAthlete } from "../services/athleteService";
 import {
@@ -6,17 +6,16 @@ import {
   upsertDailyMetricEntry,
 } from "../services/dailyMetricsService";
 import type { Athlete } from "../types/athlete";
-import type { DailyMetric } from "../types/dailyMetrics";
 import type { CSSProperties } from "react";
 
 type DailyMetricDraft = {
+  weightLb: string;
   calories: string;
   proteinG: string;
   carbsG: string;
   fatG: string;
   sleepHours: string;
   steps: string;
-  energyScore: string;
   manualNotes: string;
 };
 
@@ -32,13 +31,6 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: "16px",
     padding: "20px",
   },
-  headerRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: "16px",
-    flexWrap: "wrap",
-  },
   title: {
     margin: 0,
     color: "#f8fafc",
@@ -51,54 +43,11 @@ const styles: Record<string, CSSProperties> = {
     color: "#94a3b8",
     fontSize: "14px",
   },
-  helperText: {
-    margin: 0,
-    color: "#cbd5e1",
-    fontSize: "15px",
-    lineHeight: 1.6,
-  },
-  statusBadge: {
-    display: "inline-block",
-    padding: "6px 12px",
-    borderRadius: "999px",
-    background: "#1e293b",
-    color: "#e2e8f0",
-    fontSize: "12px",
-    fontWeight: 700,
-    letterSpacing: "0.04em",
-    textTransform: "uppercase",
-  },
-  metricGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-    gap: "14px",
-    marginTop: "16px",
-  },
-  metricCard: {
-    border: "1px solid rgba(255, 255, 255, 0.10)",
-    background: "rgba(2, 6, 23, 0.35)",
-    borderRadius: "14px",
-    padding: "14px",
-  },
-  metricLabel: {
-    margin: 0,
-    color: "#94a3b8",
-    fontSize: "12px",
-    fontWeight: 700,
-    letterSpacing: "0.05em",
-    textTransform: "uppercase",
-  },
-  metricValue: {
-    margin: "8px 0 0 0",
-    color: "#f8fafc",
-    fontSize: "24px",
-    fontWeight: 700,
-  },
   formGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+    gridTemplateColumns: "1fr",
     gap: "14px",
-    marginTop: "16px",
+    marginTop: "18px",
   },
   fieldBlock: {
     display: "flex",
@@ -120,7 +69,7 @@ const styles: Record<string, CSSProperties> = {
     border: "1px solid rgba(255, 255, 255, 0.12)",
     borderRadius: "10px",
     padding: "10px 12px",
-    fontSize: "14px",
+    fontSize: "16px",
   },
   textArea: {
     width: "100%",
@@ -130,8 +79,8 @@ const styles: Record<string, CSSProperties> = {
     border: "1px solid rgba(255, 255, 255, 0.12)",
     borderRadius: "10px",
     padding: "10px 12px",
-    fontSize: "14px",
-    minHeight: "96px",
+    fontSize: "16px",
+    minHeight: "110px",
     resize: "vertical",
   },
   actionRow: {
@@ -150,16 +99,6 @@ const styles: Record<string, CSSProperties> = {
     fontWeight: 700,
     cursor: "pointer",
   },
-  buttonSecondary: {
-    background: "rgba(255, 255, 255, 0.06)",
-    color: "#e2e8f0",
-    border: "1px solid rgba(255, 255, 255, 0.12)",
-    borderRadius: "12px",
-    padding: "10px 16px",
-    fontSize: "14px",
-    fontWeight: 700,
-    cursor: "pointer",
-  },
   buttonDisabled: {
     opacity: 0.5,
     cursor: "not-allowed",
@@ -169,6 +108,16 @@ const styles: Record<string, CSSProperties> = {
     color: "#cbd5e1",
     fontSize: "15px",
   },
+  errorText: {
+    margin: "14px 0 0 0",
+    color: "#fecaca",
+    fontSize: "14px",
+  },
+  successText: {
+    margin: "14px 0 0 0",
+    color: "#bbf7d0",
+    fontSize: "14px",
+  },
 };
 
 function getTodayDateString() {
@@ -177,13 +126,13 @@ function getTodayDateString() {
 
 function createEmptyDraft(): DailyMetricDraft {
   return {
+    weightLb: "",
     calories: "",
     proteinG: "",
     carbsG: "",
     fatG: "",
     sleepHours: "",
     steps: "",
-    energyScore: "",
     manualNotes: "",
   };
 }
@@ -193,63 +142,42 @@ function toInputString(value?: number | null) {
   return String(value);
 }
 
-function formatMetricValue(value?: number | null, suffix = "") {
-  if (value == null) return "—";
-  return `${value}${suffix}`;
-}
+function parseOptionalNumber(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
 
-function formatSleepHours(minutes?: number | null) {
-  if (minutes == null) return "—";
-  return `${(minutes / 60).toFixed(1)} hrs`;
-}
-
-function getCompletionLabel(metric: DailyMetric | null, draft: DailyMetricDraft) {
-  const values = [
-    metric?.calories ?? (draft.calories ? Number(draft.calories) : null),
-    metric?.protein_g ?? (draft.proteinG ? Number(draft.proteinG) : null),
-    metric?.carbs_g ?? (draft.carbsG ? Number(draft.carbsG) : null),
-    metric?.fat_g ?? (draft.fatG ? Number(draft.fatG) : null),
-    metric?.sleep_minutes ??
-      (draft.sleepHours ? Math.round(Number(draft.sleepHours) * 60) : null),
-    metric?.steps ?? (draft.steps ? Number(draft.steps) : null),
-  ];
-
-  const filledCount = values.filter((value) => value != null && !Number.isNaN(value)).length;
-
-  if (filledCount === 0) return "Not Started";
-  if (filledCount <= 2) return "Partial";
-  if (filledCount <= 4) return "Mostly Complete";
-  return "Complete Enough";
+  const parsed = Number(trimmed);
+  return Number.isNaN(parsed) ? null : parsed;
 }
 
 export default function DailyMetricsPage() {
   const [athlete, setAthlete] = useState<Athlete | null>(null);
   const [selectedDate, setSelectedDate] = useState(getTodayDateString());
-  const [dailyMetric, setDailyMetric] = useState<DailyMetric | null>(null);
   const [draft, setDraft] = useState<DailyMetricDraft>(createEmptyDraft());
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadPage() {
       try {
         setIsLoading(true);
         setErrorMessage(null);
+        setSuccessMessage(null);
 
         const currentAthlete = await getCurrentAthlete();
         setAthlete(currentAthlete);
 
         if (!currentAthlete) {
-          setDailyMetric(null);
           setDraft(createEmptyDraft());
           return;
         }
 
         const metric = await getDailyMetricByDate(currentAthlete.id, selectedDate);
-        setDailyMetric(metric);
 
         setDraft({
+          weightLb: toInputString(metric?.weight_lb),
           calories: toInputString(metric?.calories),
           proteinG: toInputString(metric?.protein_g),
           carbsG: toInputString(metric?.carbs_g),
@@ -259,7 +187,6 @@ export default function DailyMetricsPage() {
               ? String((metric.sleep_minutes / 60).toFixed(1))
               : "",
           steps: toInputString(metric?.steps),
-          energyScore: toInputString(metric?.energy_score),
           manualNotes: metric?.manual_notes ?? "",
         });
       } catch (error) {
@@ -272,10 +199,6 @@ export default function DailyMetricsPage() {
 
     void loadPage();
   }, [selectedDate]);
-
-  const completionLabel = useMemo(() => {
-    return getCompletionLabel(dailyMetric, draft);
-  }, [dailyMetric, draft]);
 
   function updateDraft(field: keyof DailyMetricDraft, value: string) {
     setDraft((prev) => ({
@@ -290,25 +213,25 @@ export default function DailyMetricsPage() {
     try {
       setIsSaving(true);
       setErrorMessage(null);
+      setSuccessMessage(null);
 
+      const sleepHours = parseOptionalNumber(draft.sleepHours);
       const savedMetric = await upsertDailyMetricEntry({
         athleteId: athlete.id,
         metricDate: selectedDate,
         goalTypeAtTime: athlete.current_goal ?? null,
-        calories: draft.calories.trim() ? Number(draft.calories) : null,
-        proteinG: draft.proteinG.trim() ? Number(draft.proteinG) : null,
-        carbsG: draft.carbsG.trim() ? Number(draft.carbsG) : null,
-        fatG: draft.fatG.trim() ? Number(draft.fatG) : null,
-        sleepMinutes: draft.sleepHours.trim()
-          ? Math.round(Number(draft.sleepHours) * 60)
-          : null,
-        steps: draft.steps.trim() ? Number(draft.steps) : null,
-        energyScore: draft.energyScore.trim() ? Number(draft.energyScore) : null,
+        weightLb: parseOptionalNumber(draft.weightLb),
+        calories: parseOptionalNumber(draft.calories),
+        proteinG: parseOptionalNumber(draft.proteinG),
+        carbsG: parseOptionalNumber(draft.carbsG),
+        fatG: parseOptionalNumber(draft.fatG),
+        sleepMinutes: sleepHours == null ? null : Math.round(sleepHours * 60),
+        steps: parseOptionalNumber(draft.steps),
         manualNotes: draft.manualNotes.trim() || null,
       });
 
-      setDailyMetric(savedMetric);
       setDraft({
+        weightLb: toInputString(savedMetric.weight_lb),
         calories: toInputString(savedMetric.calories),
         proteinG: toInputString(savedMetric.protein_g),
         carbsG: toInputString(savedMetric.carbs_g),
@@ -318,9 +241,9 @@ export default function DailyMetricsPage() {
             ? String((savedMetric.sleep_minutes / 60).toFixed(1))
             : "",
         steps: toInputString(savedMetric.steps),
-        energyScore: toInputString(savedMetric.energy_score),
         manualNotes: savedMetric.manual_notes ?? "",
       });
+      setSuccessMessage("Daily metrics saved.");
     } catch (error) {
       console.error("Failed to save daily metrics:", error);
       setErrorMessage("Daily metrics could not be saved.");
@@ -333,28 +256,19 @@ export default function DailyMetricsPage() {
     <PageSection title="Daily Metrics">
       {isLoading ? (
         <p style={styles.stateText}>Loading daily metrics...</p>
-      ) : errorMessage ? (
-        <p style={styles.stateText}>{errorMessage}</p>
       ) : !athlete ? (
         <p style={styles.stateText}>No athlete record found yet.</p>
       ) : (
         <div style={styles.stack}>
           <div style={styles.panel}>
-            <div style={styles.headerRow}>
-              <div>
-                <p style={styles.title}>Recovery / Nutrition</p>
-                <p style={styles.subtitle}>
-                  Daily totals entry for nutrition and recovery. This v1 slice saves one
-                  editable row per date.
-                </p>
-              </div>
+            <p style={styles.title}>Daily Entry</p>
+            <p style={styles.subtitle}>
+              Save one row of daily nutrition, recovery, and notes for the selected date.
+            </p>
 
-              <span style={styles.statusBadge}>{completionLabel}</span>
-            </div>
-
-            <div style={styles.actionRow}>
+            <div style={styles.formGrid}>
               <div style={styles.fieldBlock}>
-                <label style={styles.label}>Selected Date</label>
+                <label style={styles.label}>Date</label>
                 <input
                   type="date"
                   value={selectedDate}
@@ -362,90 +276,23 @@ export default function DailyMetricsPage() {
                   style={styles.input}
                 />
               </div>
-            </div>
-          </div>
 
-          <div style={styles.panel}>
-            <div style={styles.headerRow}>
-              <div>
-                <p style={styles.title}>Daily Summary</p>
-                <p style={styles.subtitle}>
-                  Objective daily totals and recovery basics for the selected date.
-                </p>
-              </div>
-            </div>
-
-            <div style={styles.metricGrid}>
-              <div style={styles.metricCard}>
-                <p style={styles.metricLabel}>Calories</p>
-                <p style={styles.metricValue}>
-                  {formatMetricValue(dailyMetric?.calories ?? (draft.calories ? Number(draft.calories) : null))}
-                </p>
+              <div style={styles.fieldBlock}>
+                <label style={styles.label}>Weight (lb)</label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  value={draft.weightLb}
+                  onChange={(event) => updateDraft("weightLb", event.target.value)}
+                  style={styles.input}
+                />
               </div>
 
-              <div style={styles.metricCard}>
-                <p style={styles.metricLabel}>Protein</p>
-                <p style={styles.metricValue}>
-                  {formatMetricValue(
-                    dailyMetric?.protein_g ?? (draft.proteinG ? Number(draft.proteinG) : null),
-                    " g"
-                  )}
-                </p>
-              </div>
-
-              <div style={styles.metricCard}>
-                <p style={styles.metricLabel}>Carbs</p>
-                <p style={styles.metricValue}>
-                  {formatMetricValue(
-                    dailyMetric?.carbs_g ?? (draft.carbsG ? Number(draft.carbsG) : null),
-                    " g"
-                  )}
-                </p>
-              </div>
-
-              <div style={styles.metricCard}>
-                <p style={styles.metricLabel}>Fat</p>
-                <p style={styles.metricValue}>
-                  {formatMetricValue(
-                    dailyMetric?.fat_g ?? (draft.fatG ? Number(draft.fatG) : null),
-                    " g"
-                  )}
-                </p>
-              </div>
-
-              <div style={styles.metricCard}>
-                <p style={styles.metricLabel}>Sleep</p>
-                <p style={styles.metricValue}>
-                  {formatSleepHours(
-                    dailyMetric?.sleep_minutes ??
-                      (draft.sleepHours ? Math.round(Number(draft.sleepHours) * 60) : null)
-                  )}
-                </p>
-              </div>
-
-              <div style={styles.metricCard}>
-                <p style={styles.metricLabel}>Steps</p>
-                <p style={styles.metricValue}>
-                  {formatMetricValue(dailyMetric?.steps ?? (draft.steps ? Number(draft.steps) : null))}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div style={styles.panel}>
-            <div style={styles.headerRow}>
-              <div>
-                <p style={styles.title}>Daily Entry</p>
-                <p style={styles.subtitle}>
-                  Save nutrition totals, recovery basics, energy, and notes for the selected date.
-                </p>
-              </div>
-            </div>
-
-            <div style={styles.formGrid}>
               <div style={styles.fieldBlock}>
                 <label style={styles.label}>Calories</label>
                 <input
+                  type="number"
+                  inputMode="decimal"
                   value={draft.calories}
                   onChange={(event) => updateDraft("calories", event.target.value)}
                   style={styles.input}
@@ -455,6 +302,8 @@ export default function DailyMetricsPage() {
               <div style={styles.fieldBlock}>
                 <label style={styles.label}>Protein (g)</label>
                 <input
+                  type="number"
+                  inputMode="decimal"
                   value={draft.proteinG}
                   onChange={(event) => updateDraft("proteinG", event.target.value)}
                   style={styles.input}
@@ -464,6 +313,8 @@ export default function DailyMetricsPage() {
               <div style={styles.fieldBlock}>
                 <label style={styles.label}>Carbs (g)</label>
                 <input
+                  type="number"
+                  inputMode="decimal"
                   value={draft.carbsG}
                   onChange={(event) => updateDraft("carbsG", event.target.value)}
                   style={styles.input}
@@ -473,6 +324,8 @@ export default function DailyMetricsPage() {
               <div style={styles.fieldBlock}>
                 <label style={styles.label}>Fat (g)</label>
                 <input
+                  type="number"
+                  inputMode="decimal"
                   value={draft.fatG}
                   onChange={(event) => updateDraft("fatG", event.target.value)}
                   style={styles.input}
@@ -482,6 +335,8 @@ export default function DailyMetricsPage() {
               <div style={styles.fieldBlock}>
                 <label style={styles.label}>Sleep (hours)</label>
                 <input
+                  type="number"
+                  inputMode="decimal"
                   value={draft.sleepHours}
                   onChange={(event) => updateDraft("sleepHours", event.target.value)}
                   style={styles.input}
@@ -491,6 +346,8 @@ export default function DailyMetricsPage() {
               <div style={styles.fieldBlock}>
                 <label style={styles.label}>Steps</label>
                 <input
+                  type="number"
+                  inputMode="numeric"
                   value={draft.steps}
                   onChange={(event) => updateDraft("steps", event.target.value)}
                   style={styles.input}
@@ -498,23 +355,17 @@ export default function DailyMetricsPage() {
               </div>
 
               <div style={styles.fieldBlock}>
-                <label style={styles.label}>Energy (1–10)</label>
-                <input
-                  value={draft.energyScore}
-                  onChange={(event) => updateDraft("energyScore", event.target.value)}
-                  style={styles.input}
+                <label style={styles.label}>Notes</label>
+                <textarea
+                  value={draft.manualNotes}
+                  onChange={(event) => updateDraft("manualNotes", event.target.value)}
+                  style={styles.textArea}
                 />
               </div>
             </div>
 
-            <div style={{ marginTop: "16px" }}>
-              <label style={styles.label}>Notes</label>
-              <textarea
-                value={draft.manualNotes}
-                onChange={(event) => updateDraft("manualNotes", event.target.value)}
-                style={styles.textArea}
-              />
-            </div>
+            {errorMessage ? <p style={styles.errorText}>{errorMessage}</p> : null}
+            {successMessage ? <p style={styles.successText}>{successMessage}</p> : null}
 
             <div style={styles.actionRow}>
               <button
@@ -526,11 +377,7 @@ export default function DailyMetricsPage() {
                   ...(isSaving ? styles.buttonDisabled : {}),
                 }}
               >
-                {isSaving ? "Saving..." : "Save Daily Entry"}
-              </button>
-
-              <button type="button" style={styles.buttonSecondary}>
-                Enter Nutrition
+                {isSaving ? "Saving..." : "Save Daily Metrics"}
               </button>
             </div>
           </div>
