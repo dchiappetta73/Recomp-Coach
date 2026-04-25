@@ -1,324 +1,361 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import PageSection from "../components/shared/PageSection";
 import { getCurrentAthlete } from "../services/athleteService";
-import { getWeeklyCheckinsForAthlete } from "../services/weeklyCheckinService";
+import {
+  getWeeklyCheckinByWeekNumber,
+  upsertWeeklyCheckinMvpFields,
+} from "../services/weeklyCheckinService";
 import type { Athlete } from "../types/athlete";
-import type { WeeklyCheckin } from "../types/weeklyCheckin";
+import type { CSSProperties } from "react";
 
-function formatGoal(goal?: string | null) {
-  if (!goal) return "—";
+type WeeklyCheckinDraft = {
+  wentWell: string;
+  difficult: string;
+  scheduleIssues: string;
+  painInjuryChanges: string;
+  requestedAdjustments: string;
+  readinessScore: string;
+};
 
-  return goal
-    .split("_")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-}
-
-function formatDate(dateString?: string | null) {
-  if (!dateString) return "—";
-
-  const date = new Date(`${dateString}T00:00:00`);
-  return date.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
-function formatDateRange(start?: string | null, end?: string | null) {
-  if (!start && !end) return "—";
-  return `${formatDate(start)} to ${formatDate(end)}`;
-}
-
-function formatNumber(value?: number | null, suffix = "") {
-  if (value == null) return "—";
-  return `${value.toFixed(0)}${suffix}`;
-}
-
-function formatWeight(value?: number | null) {
-  if (value == null) return "—";
-  return `${value.toFixed(1)} lb`;
-}
-
-function formatHoursFromMinutes(minutes?: number | null) {
-  if (minutes == null) return "—";
-  return `${(minutes / 60).toFixed(1)} hrs`;
-}
-
-const styles = {
+const styles: Record<string, CSSProperties> = {
   stateText: {
+    margin: 0,
     color: "#cbd5e1",
+    fontSize: "15px",
   },
   panel: {
-    border: "1px solid #334155",
-    background: "rgba(255, 255, 255, 0.03)",
+    border: "1px solid rgba(255, 255, 255, 0.10)",
+    background: "rgba(255, 255, 255, 0.04)",
     borderRadius: "16px",
     padding: "20px",
-  } as const,
-  mutedText: {
-    color: "#94a3b8",
   },
-  summaryGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-    gap: "16px",
-    marginTop: "20px",
-  } as const,
-  metricLabel: {
-    fontSize: "12px",
-    letterSpacing: "0.08em",
-    textTransform: "uppercase" as const,
-    color: "#94a3b8",
-  },
-  metricValue: {
-    marginTop: "6px",
-    fontSize: "22px",
-    fontWeight: 600,
+  title: {
+    margin: 0,
     color: "#f8fafc",
-  },
-  subheading: {
-    margin: "32px 0 16px",
-    fontSize: "18px",
+    fontSize: "28px",
     fontWeight: 700,
-    color: "#f8fafc",
+    lineHeight: 1.15,
   },
-  list: {
+  subtitle: {
+    margin: "6px 0 0 0",
+    color: "#94a3b8",
+    fontSize: "14px",
+  },
+  formGrid: {
     display: "grid",
-    gap: "16px",
-  } as const,
-  cardHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: "16px",
-    flexWrap: "wrap" as const,
-    marginBottom: "16px",
-  },
-  badge: {
-    display: "inline-block",
-    padding: "4px 10px",
-    borderRadius: "999px",
-    background: "#1e293b",
-    color: "#e2e8f0",
-    fontSize: "12px",
-    fontWeight: 600,
-  },
-  detailGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+    gridTemplateColumns: "1fr",
     gap: "14px",
-    marginTop: "16px",
-  } as const,
-  bodyText: {
-    marginTop: "12px",
-    color: "#cbd5e1",
-    lineHeight: 1.6,
-    whiteSpace: "pre-wrap" as const,
+    marginTop: "18px",
   },
-} as const;
+  fieldBlock: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "6px",
+  },
+  label: {
+    color: "#94a3b8",
+    fontSize: "12px",
+    fontWeight: 700,
+    letterSpacing: "0.05em",
+    textTransform: "uppercase",
+  },
+  input: {
+    width: "100%",
+    boxSizing: "border-box",
+    background: "rgba(255, 255, 255, 0.06)",
+    color: "#f8fafc",
+    border: "1px solid rgba(255, 255, 255, 0.12)",
+    borderRadius: "10px",
+    padding: "10px 12px",
+    fontSize: "16px",
+  },
+  textArea: {
+    width: "100%",
+    boxSizing: "border-box",
+    background: "rgba(255, 255, 255, 0.06)",
+    color: "#f8fafc",
+    border: "1px solid rgba(255, 255, 255, 0.12)",
+    borderRadius: "10px",
+    padding: "10px 12px",
+    fontSize: "16px",
+    minHeight: "110px",
+    resize: "vertical",
+  },
+  actionRow: {
+    display: "flex",
+    gap: "16px",
+    flexWrap: "wrap",
+    marginTop: "18px",
+  },
+  buttonPrimary: {
+    background: "#4f46e5",
+    color: "#ffffff",
+    border: "none",
+    borderRadius: "12px",
+    padding: "10px 16px",
+    fontSize: "14px",
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+  buttonDisabled: {
+    opacity: 0.5,
+    cursor: "not-allowed",
+  },
+  errorText: {
+    margin: "14px 0 0 0",
+    color: "#fecaca",
+    fontSize: "14px",
+  },
+  successText: {
+    margin: "14px 0 0 0",
+    color: "#bbf7d0",
+    fontSize: "14px",
+  },
+};
+
+function createEmptyDraft(): WeeklyCheckinDraft {
+  return {
+    wentWell: "",
+    difficult: "",
+    scheduleIssues: "",
+    painInjuryChanges: "",
+    requestedAdjustments: "",
+    readinessScore: "",
+  };
+}
+
+function toInputString(value?: string | number | null) {
+  if (value == null) return "";
+  return String(value);
+}
+
+function nullableText(value: string) {
+  return value.trim() || null;
+}
+
+function parseReadinessScore(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const parsed = Number(trimmed);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 5) {
+    throw new Error("Readiness score must be between 1 and 5.");
+  }
+
+  return parsed;
+}
+
+function getCurrentWeekNumber() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), 0, 1);
+  const dayMs = 24 * 60 * 60 * 1000;
+  return Math.ceil(((now.getTime() - start.getTime()) / dayMs + start.getDay() + 1) / 7);
+}
 
 export default function WeeklyCheckinPage() {
   const [athlete, setAthlete] = useState<Athlete | null>(null);
-  const [weeklyCheckins, setWeeklyCheckins] = useState<WeeklyCheckin[]>([]);
+  const [weekNumber, setWeekNumber] = useState(String(getCurrentWeekNumber()));
+  const [draft, setDraft] = useState<WeeklyCheckinDraft>(createEmptyDraft());
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    async function loadWeeklyCheckins() {
+    async function loadWeeklyCheckin() {
       try {
         setIsLoading(true);
         setErrorMessage(null);
+        setSuccessMessage(null);
 
         const currentAthlete = await getCurrentAthlete();
         setAthlete(currentAthlete);
 
-        if (!currentAthlete) {
-          setWeeklyCheckins([]);
+        const parsedWeekNumber = Number(weekNumber);
+        if (!currentAthlete || !Number.isInteger(parsedWeekNumber) || parsedWeekNumber < 1) {
+          setDraft(createEmptyDraft());
           return;
         }
 
-        const checkins = await getWeeklyCheckinsForAthlete(currentAthlete.id);
-        setWeeklyCheckins(checkins);
+        const checkin = await getWeeklyCheckinByWeekNumber(
+          currentAthlete.id,
+          parsedWeekNumber
+        );
+
+        setDraft({
+          wentWell: toInputString(checkin?.went_well),
+          difficult: toInputString(checkin?.difficult),
+          scheduleIssues: toInputString(checkin?.schedule_issues),
+          painInjuryChanges: toInputString(checkin?.pain_injury_changes),
+          requestedAdjustments: toInputString(checkin?.requested_adjustments),
+          readinessScore: toInputString(checkin?.readiness_score),
+        });
       } catch (error) {
-        console.error("Failed to load weekly check-ins:", error);
-        setErrorMessage("Weekly check-in data could not be loaded.");
+        console.error("Failed to load weekly check-in:", error);
+        setErrorMessage("Weekly check-in could not be loaded.");
       } finally {
         setIsLoading(false);
       }
     }
 
-    void loadWeeklyCheckins();
-  }, []);
+    void loadWeeklyCheckin();
+  }, [weekNumber]);
 
-  const latestCheckin = useMemo(() => weeklyCheckins[0] ?? null, [weeklyCheckins]);
-  const recentCheckins = useMemo(() => weeklyCheckins.slice(1, 3), [weeklyCheckins]);
+  function updateDraft(field: keyof WeeklyCheckinDraft, value: string) {
+    setDraft((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  }
+
+  async function handleSave() {
+    if (!athlete) return;
+
+    try {
+      setIsSaving(true);
+      setErrorMessage(null);
+      setSuccessMessage(null);
+
+      const parsedWeekNumber = Number(weekNumber);
+      if (!Number.isInteger(parsedWeekNumber) || parsedWeekNumber < 1) {
+        throw new Error("Week number is required.");
+      }
+
+      const savedCheckin = await upsertWeeklyCheckinMvpFields({
+        athleteId: athlete.id,
+        weekNumber: parsedWeekNumber,
+        wentWell: nullableText(draft.wentWell),
+        difficult: nullableText(draft.difficult),
+        scheduleIssues: nullableText(draft.scheduleIssues),
+        painInjuryChanges: nullableText(draft.painInjuryChanges),
+        requestedAdjustments: nullableText(draft.requestedAdjustments),
+        readinessScore: parseReadinessScore(draft.readinessScore),
+      });
+
+      setDraft({
+        wentWell: toInputString(savedCheckin.went_well),
+        difficult: toInputString(savedCheckin.difficult),
+        scheduleIssues: toInputString(savedCheckin.schedule_issues),
+        painInjuryChanges: toInputString(savedCheckin.pain_injury_changes),
+        requestedAdjustments: toInputString(savedCheckin.requested_adjustments),
+        readinessScore: toInputString(savedCheckin.readiness_score),
+      });
+      setSuccessMessage("Weekly check-in saved.");
+    } catch (error) {
+      console.error("Failed to save weekly check-in:", error);
+      setErrorMessage(
+        error instanceof Error ? error.message : "Weekly check-in could not be saved."
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  }
 
   return (
     <PageSection title="Weekly Check-In">
       {isLoading ? (
-        <p style={styles.stateText}>Loading weekly check-ins...</p>
-      ) : errorMessage ? (
-        <p style={styles.stateText}>{errorMessage}</p>
+        <p style={styles.stateText}>Loading weekly check-in...</p>
       ) : !athlete ? (
         <p style={styles.stateText}>No athlete record found yet.</p>
-      ) : weeklyCheckins.length === 0 ? (
-        <p style={styles.stateText}>No weekly check-ins found yet.</p>
       ) : (
-        <div>
-          <div style={styles.panel}>
-            <div style={styles.cardHeader}>
-              <div>
-                <p style={{ margin: 0, fontSize: "24px", fontWeight: 700, color: "#f8fafc" }}>
-                  Latest Weekly Check-In
-                </p>
-                <p style={{ ...styles.mutedText, marginTop: "6px" }}>
-                  {athlete.name} • {formatDateRange(latestCheckin?.date_start, latestCheckin?.date_end)}
-                </p>
-              </div>
-              <span style={styles.badge}>
-                {latestCheckin?.overall_status ?? "No status"}
-              </span>
+        <div style={styles.panel}>
+          <p style={styles.title}>Weekly Check-In</p>
+          <p style={styles.subtitle}>
+            Save one subjective weekly check-in for export.
+          </p>
+
+          <div style={styles.formGrid}>
+            <div style={styles.fieldBlock}>
+              <label style={styles.label}>Week Number</label>
+              <input
+                type="number"
+                inputMode="numeric"
+                min="1"
+                value={weekNumber}
+                onChange={(event) => setWeekNumber(event.target.value)}
+                style={styles.input}
+              />
             </div>
 
-            <div style={styles.summaryGrid}>
-              <div>
-                <div style={styles.metricLabel}>Week</div>
-                <div style={styles.metricValue}>
-                  {formatNumber(latestCheckin?.week_number)}
-                </div>
-              </div>
-              <div>
-                <div style={styles.metricLabel}>Phase</div>
-                <div style={styles.metricValue}>
-                  {latestCheckin?.phase_label ?? "—"}
-                </div>
-              </div>
-              <div>
-                <div style={styles.metricLabel}>Goal</div>
-                <div style={styles.metricValue}>
-                  {formatGoal(latestCheckin?.goal_type_at_time)}
-                </div>
-              </div>
-              <div>
-                <div style={styles.metricLabel}>Avg Weight</div>
-                <div style={styles.metricValue}>
-                  {formatWeight(latestCheckin?.avg_weight_lb)}
-                </div>
-              </div>
-              <div>
-                <div style={styles.metricLabel}>Avg Calories</div>
-                <div style={styles.metricValue}>
-                  {formatNumber(latestCheckin?.avg_calories)}
-                </div>
-              </div>
-              <div>
-                <div style={styles.metricLabel}>Avg Protein</div>
-                <div style={styles.metricValue}>
-                  {formatNumber(latestCheckin?.avg_protein_g, " g")}
-                </div>
-              </div>
-              <div>
-                <div style={styles.metricLabel}>Avg Sleep</div>
-                <div style={styles.metricValue}>
-                  {formatHoursFromMinutes(latestCheckin?.avg_sleep_minutes)}
-                </div>
-              </div>
-              <div>
-                <div style={styles.metricLabel}>Avg Steps</div>
-                <div style={styles.metricValue}>
-                  {formatNumber(latestCheckin?.avg_steps)}
-                </div>
-              </div>
-              <div>
-                <div style={styles.metricLabel}>Training Sessions</div>
-                <div style={styles.metricValue}>
-                  {formatNumber(latestCheckin?.training_sessions_logged)}
-                </div>
-              </div>
+            <div style={styles.fieldBlock}>
+              <label style={styles.label}>What went well</label>
+              <textarea
+                value={draft.wentWell}
+                onChange={(event) => updateDraft("wentWell", event.target.value)}
+                style={styles.textArea}
+              />
             </div>
 
-            {latestCheckin?.generated_summary ? (
-              <p style={styles.bodyText}>{latestCheckin.generated_summary}</p>
-            ) : null}
+            <div style={styles.fieldBlock}>
+              <label style={styles.label}>What was difficult</label>
+              <textarea
+                value={draft.difficult}
+                onChange={(event) => updateDraft("difficult", event.target.value)}
+                style={styles.textArea}
+              />
+            </div>
 
-            {latestCheckin?.observations ? (
-              <p style={styles.bodyText}>
-                <strong style={{ color: "#f8fafc" }}>Observations:</strong> {latestCheckin.observations}
-              </p>
-            ) : null}
+            <div style={styles.fieldBlock}>
+              <label style={styles.label}>Schedule issues</label>
+              <textarea
+                value={draft.scheduleIssues}
+                onChange={(event) => updateDraft("scheduleIssues", event.target.value)}
+                style={styles.textArea}
+              />
+            </div>
 
-            {latestCheckin?.recommendations ? (
-              <p style={styles.bodyText}>
-                <strong style={{ color: "#f8fafc" }}>Recommendations:</strong> {latestCheckin.recommendations}
-              </p>
-            ) : null}
+            <div style={styles.fieldBlock}>
+              <label style={styles.label}>Pain/injury changes</label>
+              <textarea
+                value={draft.painInjuryChanges}
+                onChange={(event) =>
+                  updateDraft("painInjuryChanges", event.target.value)
+                }
+                style={styles.textArea}
+              />
+            </div>
+
+            <div style={styles.fieldBlock}>
+              <label style={styles.label}>Requested adjustments</label>
+              <textarea
+                value={draft.requestedAdjustments}
+                onChange={(event) =>
+                  updateDraft("requestedAdjustments", event.target.value)
+                }
+                style={styles.textArea}
+              />
+            </div>
+
+            <div style={styles.fieldBlock}>
+              <label style={styles.label}>Readiness score (1-5)</label>
+              <input
+                type="number"
+                inputMode="numeric"
+                min="1"
+                max="5"
+                value={draft.readinessScore}
+                onChange={(event) => updateDraft("readinessScore", event.target.value)}
+                style={styles.input}
+              />
+            </div>
           </div>
 
-          {recentCheckins.length > 0 ? (
-            <>
-              <h3 style={styles.subheading}>Recent Check-Ins</h3>
-              <div style={styles.list}>
-                {recentCheckins.map((checkin) => (
-                  <div key={checkin.id} style={styles.panel}>
-                    <div style={styles.cardHeader}>
-                      <div>
-                        <p style={{ margin: 0, fontSize: "18px", fontWeight: 700, color: "#f8fafc" }}>
-                          {formatDateRange(checkin.date_start, checkin.date_end)}
-                        </p>
-                        <p style={{ ...styles.mutedText, marginTop: "6px" }}>
-                          Week {formatNumber(checkin.week_number)} • {checkin.phase_label ?? "No phase label"}
-                        </p>
-                      </div>
-                      <span style={styles.badge}>{checkin.overall_status ?? "No status"}</span>
-                    </div>
+          {errorMessage ? <p style={styles.errorText}>{errorMessage}</p> : null}
+          {successMessage ? <p style={styles.successText}>{successMessage}</p> : null}
 
-                    <div style={styles.detailGrid}>
-                      <div>
-                        <div style={styles.metricLabel}>Goal</div>
-                        <div style={{ marginTop: "6px", color: "#f8fafc" }}>
-                          {formatGoal(checkin.goal_type_at_time)}
-                        </div>
-                      </div>
-                      <div>
-                        <div style={styles.metricLabel}>Avg Weight</div>
-                        <div style={{ marginTop: "6px", color: "#f8fafc" }}>
-                          {formatWeight(checkin.avg_weight_lb)}
-                        </div>
-                      </div>
-                      <div>
-                        <div style={styles.metricLabel}>Avg Calories</div>
-                        <div style={{ marginTop: "6px", color: "#f8fafc" }}>
-                          {formatNumber(checkin.avg_calories)}
-                        </div>
-                      </div>
-                      <div>
-                        <div style={styles.metricLabel}>Avg Protein</div>
-                        <div style={{ marginTop: "6px", color: "#f8fafc" }}>
-                          {formatNumber(checkin.avg_protein_g, " g")}
-                        </div>
-                      </div>
-                      <div>
-                        <div style={styles.metricLabel}>Avg Sleep</div>
-                        <div style={{ marginTop: "6px", color: "#f8fafc" }}>
-                          {formatHoursFromMinutes(checkin.avg_sleep_minutes)}
-                        </div>
-                      </div>
-                      <div>
-                        <div style={styles.metricLabel}>Avg Steps</div>
-                        <div style={{ marginTop: "6px", color: "#f8fafc" }}>
-                          {formatNumber(checkin.avg_steps)}
-                        </div>
-                      </div>
-                    </div>
-
-                    {checkin.generated_summary ? (
-                      <p style={styles.bodyText}>{checkin.generated_summary}</p>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : null}
+          <div style={styles.actionRow}>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={isSaving}
+              style={{
+                ...styles.buttonPrimary,
+                ...(isSaving ? styles.buttonDisabled : {}),
+              }}
+            >
+              {isSaving ? "Saving..." : "Save Weekly Check-In"}
+            </button>
+          </div>
         </div>
       )}
     </PageSection>
