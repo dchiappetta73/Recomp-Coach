@@ -6,6 +6,7 @@ const navItems = [
   { to: "/workout", label: "Workout" },
   { to: "/daily-metrics", label: "Daily Metrics" },
   { to: "/weekly-checkin", label: "Weekly Check-In" },
+  { to: "/weekly-export", label: "Weekly Export" },
   { to: "/progress-hub", label: "Progress Hub" },
   { to: "/analysis", label: "Analysis" },
   { to: "/integrations", label: "Integrations" },

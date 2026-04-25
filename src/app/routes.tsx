@@ -5,6 +5,7 @@ import ProgramPage from "../pages/ProgramPage";
 import WorkoutPage from "../pages/WorkoutPage";
 import DailyMetricsPage from "../pages/DailyMetricsPage";
 import WeeklyCheckinPage from "../pages/WeeklyCheckinPage";
+import WeeklyExportPage from "../pages/WeeklyExportPage";
 import ProgressHubPage from "../pages/ProgressHubPage";
 import AnalysisPage from "../pages/AnalysisPage";
 import IntegrationsPage from "../pages/IntegrationsPage";
@@ -20,6 +21,7 @@ export const router = createBrowserRouter([
       { path: "workout", element: <WorkoutPage /> },
       { path: "daily-metrics", element: <DailyMetricsPage /> },
       { path: "weekly-checkin", element: <WeeklyCheckinPage /> },
+      { path: "weekly-export", element: <WeeklyExportPage /> },
       { path: "progress-hub", element: <ProgressHubPage /> },
       { path: "analysis", element: <AnalysisPage /> },
       { path: "integrations", element: <IntegrationsPage /> },
